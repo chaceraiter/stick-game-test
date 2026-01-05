@@ -1,41 +1,44 @@
 # Current Context for New Chat
 
-## Project Status: Refactored, Ready for New Features
+## Project Status: Weapon System In Progress
 
-A stick figure arena shooter built with Phaser 3, styled to look like doodles on crumpled notebook paper. Codebase refactored into clean ES6 modules. Ready to add more shapes and build procedural generator.
+A stick figure arena shooter built with Phaser 3, styled to look like doodles on crumpled notebook paper. Recently added keyboard aiming system. Now building out a multi-weapon system.
 
 ## What Works
 
-- **Player movement:** Arrow keys to move left/right, up to jump
-- **Shooting:** Click to fire toward mouse cursor
+- **Player movement:** WASD or arrow keys to move, W/Up to jump
+- **Aiming:** Crosshair orbits player at fixed distance, J/K to rotate aim
+- **Shooting:** Spacebar or click fires toward crosshair
 - **Enemies:** Red stick figures, destroyed when shot
-- **Level progression:** 6 layouts that cycle; complete level by killing all enemies, click to advance
+- **Level progression:** 6 layouts that cycle; complete level by killing all enemies
 - **Platform shape library:** 15 simple shapes + 3 compound shapes = 18 total
 - **Compound shape system:** Multiple collision bodies + custom visual outlines
-- **Shape showcase:** Layout 2 displays all 18 shapes for reference
-- **Water hazard:** Blue wavy line with crayon fill at y=870
-- **Walls:** Hand-drawn with crayon fill, ending at y=795
-- **Crayon visual style:** 24% gray fill + diagonal hatching on all shapes
+- **Water hazard:** Blue wavy line at y=870
+- **Walls:** Hand-drawn with crayon fill
 - **Debug controls:** R (restart), G (next layout), F (fly), H (hitboxes)
 
-## Shape Library (18 shapes)
+## In Progress: Weapon System
 
-### Simple Shapes (15)
-**Flat:** flatLong (120x8), flatMedium (70x8), flatSmall (40x8), flatTiny (25x8)
-**L-shapes:** lShapeDownRight (70x35), lShapeDownLeft (70x35)
-**Blocks:** blockTall (35x65), blockWide (55x50), blockShort (40x30)
-**Special:** tShape (40x25), pillar (18x45), cupShape (30x20), rock (25x16), bumpyWide (100x15), notchedBlock (50x55)
+**Completed steps:**
+1. ✅ Created `js/weapons/WeaponDefinitions.js` with 5 weapons defined
 
-### Compound Shapes (3)
-**verticalSlot** (60x60) - Two pillars, drop-through gap
-**horizontalTunnel** (70x50) - Two bars, walk-through gap  
-**zigZagGap** (60x80) - Two L-shapes, diagonal drop passage
+**Remaining steps:**
+2. ⏳ Fix diagonal velocity normalization
+3. Implement fire rate limiting per weapon
+4. Dynamic crosshair (distance/gap changes per weapon)
+5. Weapon switching with number keys (1-5)
+6. Weapon display UI at top of screen
+7. Unique weapon behaviors (shotgun spread, etc.)
 
-## Layouts (6 total)
+### Weapons Defined (in WeaponDefinitions.js)
 
-1. **Layout 1** - Three-zone pattern with compound shapes on right
-2. **Layout 2** - Shape showcase (all 18 shapes displayed)
-3-6. **Layouts 3-6** - Mixed layouts
+| Weapon | Velocity | Fire Rate | Range | Precision | Special |
+|--------|----------|-----------|-------|-----------|---------|
+| Pistol | 600 | 3/sec | 85px | 4px gap | Balanced |
+| Shotgun | 500 | 1/sec | 60px | 8px gap | 5 pellets, spread |
+| SMG | 550 | 10/sec | 70px | 6px gap | Very fast |
+| Hunting Rifle | 900 | 0.8/sec | 120px | 2px gap | Slow, precise |
+| Auto Rifle | 700 | 5/sec | 90px | 4px gap | Medium |
 
 ## File Structure
 
@@ -43,23 +46,22 @@ A stick figure arena shooter built with Phaser 3, styled to look like doodles on
 stick-game-test/
 ├── index.html                      # Loads Phaser + game.js as ES6 module
 ├── js/
-│   ├── game.js                     # Phaser config (700x900), imports PlayScene
+│   ├── game.js                     # Phaser config (700x900)
 │   ├── scenes/
-│   │   └── PlayScene.js            # Main gameplay (~515 lines)
+│   │   └── PlayScene.js            # Main gameplay (~570 lines)
 │   ├── platforms/
-│   │   ├── PlatformShapes.js       # Re-export hub (11 lines)
-│   │   ├── ShapeDefinitions.js     # 18 shapes (257 lines)
-│   │   └── LayoutDefinitions.js    # 6 layouts + design rules (279 lines)
+│   │   ├── PlatformShapes.js       # Re-export hub
+│   │   ├── ShapeDefinitions.js     # 18 shapes
+│   │   └── LayoutDefinitions.js    # 6 layouts
 │   ├── drawing/
-│   │   ├── ShapeRenderer.js        # Platform texture generation (128 lines)
-│   │   └── EnvironmentRenderer.js  # Walls & water drawing (156 lines)
-│   └── utils/
-│       └── DebugControls.js        # R/G/F/H key handling (67 lines)
+│   │   ├── ShapeRenderer.js        # Platform textures
+│   │   └── EnvironmentRenderer.js  # Walls & water
+│   ├── utils/
+│   │   └── DebugControls.js        # R/G/F/H keys
+│   └── weapons/
+│       └── WeaponDefinitions.js    # NEW: 5 weapon configs
 ├── assets/
 │   └── cropped-notebook-page.png
-├── reference/
-│   ├── example-map.png
-│   └── layout-ref-1.png
 └── ai-context-management/
 ```
 
@@ -68,34 +70,31 @@ stick-game-test/
 - Phaser 3.70.0 via CDN
 - ES6 modules (requires local server)
 - Canvas: 700x900
-- Walls: x=55 (left), x=645 (right), end y=795
-- Water: y=870
 - Character: 9x17 pixels
+- Crosshair: 17x17, orbits at 85px (will vary by weapon)
 - Run: `python3 -m http.server 8000`
 
-## Layout Design Rules (for generator)
+## Controls
 
-**Three-Zone Structure:**
-- LEFT COLUMN (x ~120-160): Stacked flatLong/flatMedium, edge at x=100
-- RIGHT COLUMN (x ~540-580): Similar, edge at x=600  
-- CENTER (x ~260-440): Scattered small shapes, compound shapes
-
-**Drop Corridors:** ~45px gap between walls and platform edges
-
-## Future Goals (Queued)
-
-1. Add more base shapes (5-10 more)
-2. Shape variations (flip, scale)
-3. Procedural layout generator
-4. Dynamic holes/tunnels system (further out)
+| Action | Keys |
+|--------|------|
+| Move | WASD or Arrows |
+| Jump | W or Up |
+| Aim | J (CCW), K (CW) |
+| Shoot | Space or Click |
+| Debug | R/G/F/H |
 
 ## This Session Summary
 
-1. Converted project to ES6 modules
-2. Extracted DebugControls.js (R/G/F/H keys)
-3. Extracted EnvironmentRenderer.js (walls, water)
-4. Extracted ShapeRenderer.js (platform textures)
-5. Split PlatformShapes.js into ShapeDefinitions + LayoutDefinitions
-6. Fixed bug: compound shape visuals not clearing on level advance
-7. Fixed bug: layout label not updating on level advance
-8. PlayScene.js reduced from 780 to 515 lines
+1. Refactored codebase into ES6 modules (PlayScene 780→515 lines)
+2. Fixed compound shape cleanup bug
+3. Fixed layout label update bug
+4. Added WASD movement controls
+5. Added crosshair-based aiming system (J/K to rotate)
+6. Added spacebar shooting
+7. Created weapon definitions file with 5 weapons
+8. Started weapon system implementation (step 2 of 7 next)
+
+## Next Steps
+
+Continue weapon system implementation starting with Step 2: diagonal velocity fix.

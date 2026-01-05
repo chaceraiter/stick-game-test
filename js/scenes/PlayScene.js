@@ -94,20 +94,88 @@ export class PlayScene extends Phaser.Scene {
         this.physics.add.overlap(this.player, this.waterZone, this.playerDied, null, this);
         
         
+        // === CROSSHAIR (aim indicator) ===
+        // Create crosshair texture - two lines with gap in middle
+        if (!this.textures.exists('crosshair')) {
+            const crosshairGraphics = this.add.graphics();
+            const size = 17;  // About player height
+            const gap = 4;    // Gap in center
+            const halfSize = size / 2;
+            const halfGap = gap / 2;
+            
+            crosshairGraphics.lineStyle(1.5, 0x1a1a1a, 0.6);  // Semi-transparent dark line
+            
+            // Horizontal line (left segment)
+            crosshairGraphics.beginPath();
+            crosshairGraphics.moveTo(0, halfSize);
+            crosshairGraphics.lineTo(halfSize - halfGap, halfSize);
+            crosshairGraphics.strokePath();
+            
+            // Horizontal line (right segment)
+            crosshairGraphics.beginPath();
+            crosshairGraphics.moveTo(halfSize + halfGap, halfSize);
+            crosshairGraphics.lineTo(size, halfSize);
+            crosshairGraphics.strokePath();
+            
+            // Vertical line (top segment)
+            crosshairGraphics.beginPath();
+            crosshairGraphics.moveTo(halfSize, 0);
+            crosshairGraphics.lineTo(halfSize, halfSize - halfGap);
+            crosshairGraphics.strokePath();
+            
+            // Vertical line (bottom segment)
+            crosshairGraphics.beginPath();
+            crosshairGraphics.moveTo(halfSize, halfSize + halfGap);
+            crosshairGraphics.lineTo(halfSize, size);
+            crosshairGraphics.strokePath();
+            
+            crosshairGraphics.generateTexture('crosshair', size, size);
+            crosshairGraphics.destroy();
+        }
+        
+        // Create crosshair sprite
+        this.crosshair = this.add.image(0, 0, 'crosshair');
+        this.crosshair.setAlpha(0.7);  // Semi-transparent
+        
+        // Aim state - angle in radians (0 = right, increases counterclockwise)
+        this.aimAngle = 0;
+        this.aimDistance = 85;  // 5 player heights (5 * 17)
+        
+        
         // === INPUT ===
         // Set up keyboard controls
         // createCursorKeys gives us arrow keys automatically
         this.cursors = this.input.keyboard.createCursorKeys();
         
-        // Mouse input for shooting (and continuing after level complete)
+        // WASD keys as alternative movement
+        this.wasd = {
+            up: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
+            down: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
+            left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+            right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D)
+        };
+        
+        // J/K keys for aiming rotation
+        this.aimKeys = {
+            rotateLeft: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.J),   // Counter-clockwise
+            rotateRight: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K)   // Clockwise
+        };
+        this.aimRotationSpeed = 1.5;  // Radians per second
+        
+        // Mouse click to shoot (or continue after level complete)
         this.input.on('pointerdown', (pointer) => {
             if (this.levelInProgress) {
-                this.shoot(pointer.x, pointer.y);
+                // Shoot toward crosshair position (not mouse)
+                this.shoot(this.crosshair.x, this.crosshair.y);
             } else {
                 // Level is complete, click to start next level
                 this.startNextLevel();
             }
         });
+        
+        // Spacebar to shoot (keyboard alternative)
+        this.shootKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        this.canShoot = true;  // Prevent holding space for auto-fire
         
         
         // === BULLETS ===
@@ -179,7 +247,7 @@ export class PlayScene extends Phaser.Scene {
         
         // === UI TEXT ===
         // Show some instructions (smaller for notebook canvas)
-        this.add.text(60, 16, 'Arrows: move | Click: shoot | R/G: restart/new | F: fly | H: hitbox', {
+        this.add.text(60, 16, 'WASD: move | J/K: aim | Space/Click: shoot | R/G/F/H: debug', {
             fontSize: '9px',
             fill: '#333',
             backgroundColor: 'rgba(255,255,255,0.8)',
@@ -446,33 +514,60 @@ export class PlayScene extends Phaser.Scene {
         const flySpeed = 200;  // Speed when flying
         const jumpVelocity = -280;  // Scaled down - smaller jump for zoomed-out feel
         
-        // Left/Right movement
+        // Left/Right movement (arrows or WASD)
         const flyMode = this.debugControls.isFlyMode();
-        if (this.cursors.left.isDown) {
+        const leftDown = this.cursors.left.isDown || this.wasd.left.isDown;
+        const rightDown = this.cursors.right.isDown || this.wasd.right.isDown;
+        const upDown = this.cursors.up.isDown || this.wasd.up.isDown;
+        const downDown = this.cursors.down.isDown || this.wasd.down.isDown;
+        
+        if (leftDown) {
             this.player.setVelocityX(flyMode ? -flySpeed : -speed);
-        } else if (this.cursors.right.isDown) {
+        } else if (rightDown) {
             this.player.setVelocityX(flyMode ? flySpeed : speed);
         } else {
-            // No arrow pressed - stop horizontal movement
+            // No key pressed - stop horizontal movement
             this.player.setVelocityX(0);
         }
         
         // Up/Down movement (fly mode) or jumping (normal mode)
         if (flyMode) {
-            // Fly mode: up/down arrows move vertically
-            if (this.cursors.up.isDown) {
+            // Fly mode: up/down moves vertically
+            if (upDown) {
                 this.player.setVelocityY(-flySpeed);
-            } else if (this.cursors.down.isDown) {
+            } else if (downDown) {
                 this.player.setVelocityY(flySpeed);
             } else {
                 this.player.setVelocityY(0);
             }
         } else {
             // Normal mode: jumping when touching ground
-            if (this.cursors.up.isDown && this.player.body.blocked.down) {
+            if (upDown && this.player.body.blocked.down) {
                 this.player.setVelocityY(jumpVelocity);
             }
         }
+        
+        // Rotate aim with J/K keys
+        const deltaTime = this.game.loop.delta / 1000;  // Convert ms to seconds
+        if (this.aimKeys.rotateLeft.isDown) {
+            this.aimAngle -= this.aimRotationSpeed * deltaTime;
+        }
+        if (this.aimKeys.rotateRight.isDown) {
+            this.aimAngle += this.aimRotationSpeed * deltaTime;
+        }
+        
+        // Spacebar shooting
+        if (this.shootKey.isDown && this.canShoot && this.levelInProgress) {
+            this.shoot(this.crosshair.x, this.crosshair.y);
+            this.canShoot = false;
+        }
+        if (this.shootKey.isUp) {
+            this.canShoot = true;
+        }
+        
+        // Update crosshair position (orbits player at fixed distance)
+        this.crosshair.x = this.player.x + Math.cos(this.aimAngle) * this.aimDistance;
+        this.crosshair.y = this.player.y + Math.sin(this.aimAngle) * this.aimDistance;
         
         // Clean up bullets that have left the screen
         this.bullets.children.each((bullet) => {

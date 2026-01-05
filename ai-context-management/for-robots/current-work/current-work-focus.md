@@ -1,32 +1,33 @@
 # Current Work Focus
 
-Refactoring complete! Codebase is now modular with ES6 imports. PlayScene.js reduced from 780 to 515 lines. Fixed bugs with compound shape cleanup and layout label updates.
+Building weapon system with multiple weapon types. Keyboard aiming complete. Weapon definitions created.
 
-- **Project Goal:** Build a browser-based stick figure arena shooter with random level generation (Worms-style vibes, notebook paper aesthetic)
+- **Project Goal:** Build a browser-based stick figure arena shooter with depth in combat, enemies, and procedural levels
 
-- **Intermediate Goal:** Expand shape library and build procedural generator
+- **Intermediate Goal:** Implement multi-weapon system with different behaviors
 
-- **Current Task:** Refactor complete. Next: add more shapes (5-10), then build procedural layout generator.
+- **Current Task:** Continue weapon system - Step 2: Fix diagonal velocity normalization
 
-## Completed Refactoring
+## Weapon System Progress
 
-1. **Converted to ES6 modules** - Clean import/export structure
-2. **Split PlayScene.js** (780→515 lines):
-   - `js/drawing/ShapeRenderer.js` - Platform texture generation
-   - `js/drawing/EnvironmentRenderer.js` - Walls and water drawing
-   - `js/utils/DebugControls.js` - R/G/F/H key handling
-3. **Split PlatformShapes.js** (531→11 lines, now re-export hub):
-   - `js/platforms/ShapeDefinitions.js` - 18 shape definitions
-   - `js/platforms/LayoutDefinitions.js` - 6 layout configs
+| Step | Task | Status |
+|------|------|--------|
+| 1 | Create weapon definitions | ✅ Done |
+| 2 | Fix diagonal velocity | ⏳ Next |
+| 3 | Fire rate limiting | Pending |
+| 4 | Dynamic crosshair per weapon | Pending |
+| 5 | Weapon switching (1-5 keys) | Pending |
+| 6 | Weapon display UI | Pending |
+| 7 | Unique behaviors (shotgun spread) | Pending |
 
-## Bug Fixes This Session
+## Recently Completed
 
-- Fixed compound shape visuals not clearing on level advance
-- Fixed layout label not updating on level advance
+- ✅ ES6 module refactoring
+- ✅ WASD movement + arrow keys
+- ✅ Crosshair aiming system (J/K rotation)
+- ✅ Spacebar shooting
+- ✅ WeaponDefinitions.js with 5 weapons
 
-## Queued Features
+## Feature Roadmap (See project-vision-and-goals.md)
 
-1. Add more base shapes (5-10)
-2. Shape variations (flip, scale)
-3. Procedural layout generator
-4. Dynamic holes/tunnels system
+After weapons: procedural level generator, player health, enemy health, enemy AI
