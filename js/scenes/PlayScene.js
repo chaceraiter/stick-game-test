@@ -7,7 +7,12 @@
  * - update(): Game loop, runs every frame (~60 times per second)
  */
 
-class PlayScene extends Phaser.Scene {
+import { DebugControls } from '../utils/DebugControls.js';
+import { PLATFORM_SHAPES, LEVEL_LAYOUTS } from '../platforms/PlatformShapes.js';
+import { drawWalls, drawWater } from '../drawing/EnvironmentRenderer.js';
+import { generateAllShapeTextures } from '../drawing/ShapeRenderer.js';
+
+export class PlayScene extends Phaser.Scene {
     constructor() {
         super({ key: 'PlayScene' });
     }
@@ -25,267 +30,17 @@ class PlayScene extends Phaser.Scene {
         
         
         // === WALLS (hand-drawn style with crayon fill) ===
-        const wallGraphics = this.add.graphics();
-        
-        // Left wall - fill first, then outline
-        // Build path points for left wall
-        const leftWallPoints = [{x: 55, y: 0}];
-        for (let y = 0; y <= 795; y += 20) {
-            const wobbleX = 55 + (Math.random() - 0.5) * 6 + Math.sin(y * 0.02) * 3;
-            leftWallPoints.push({x: wobbleX, y: y});
-        }
-        leftWallPoints.push({x: 55, y: 795}, {x: 0, y: 795}, {x: 0, y: 0});
-        
-        // Fill left wall
-        wallGraphics.fillStyle(0x888888, 0.24);
-        wallGraphics.beginPath();
-        wallGraphics.moveTo(leftWallPoints[0].x, leftWallPoints[0].y);
-        for (let i = 1; i < leftWallPoints.length; i++) {
-            wallGraphics.lineTo(leftWallPoints[i].x, leftWallPoints[i].y);
-        }
-        wallGraphics.closePath();
-        wallGraphics.fillPath();
-        
-        // Crayon strokes for left wall
-        wallGraphics.lineStyle(0.5, 0x666666, 0.15);
-        for (let y = 0; y < 795; y += 8) {
-            wallGraphics.beginPath();
-            wallGraphics.moveTo((Math.random() - 0.5) * 2, y + (Math.random() - 0.5) * 2);
-            wallGraphics.lineTo(50 + (Math.random() - 0.5) * 10, y + 15 + (Math.random() - 0.5) * 2);
-            wallGraphics.strokePath();
-        }
-        
-        // Outline left wall
-        wallGraphics.lineStyle(2.5, 0x1a1a1a);
-        wallGraphics.beginPath();
-        wallGraphics.moveTo(55, 0);
-        for (let i = 1; i < leftWallPoints.length - 2; i++) {
-            wallGraphics.lineTo(leftWallPoints[i].x, leftWallPoints[i].y);
-        }
-        wallGraphics.lineTo(55, 795);
-        wallGraphics.lineTo(0, 795);
-        wallGraphics.strokePath();
-        
-        // Right wall - fill first, then outline
-        const rightWallPoints = [{x: 645, y: 0}];
-        for (let y = 0; y <= 795; y += 20) {
-            const wobbleX = 645 + (Math.random() - 0.5) * 6 + Math.sin(y * 0.025 + 1) * 3;
-            rightWallPoints.push({x: wobbleX, y: y});
-        }
-        rightWallPoints.push({x: 645, y: 795}, {x: 700, y: 795}, {x: 700, y: 0});
-        
-        // Fill right wall
-        wallGraphics.fillStyle(0x888888, 0.24);
-        wallGraphics.beginPath();
-        wallGraphics.moveTo(rightWallPoints[0].x, rightWallPoints[0].y);
-        for (let i = 1; i < rightWallPoints.length; i++) {
-            wallGraphics.lineTo(rightWallPoints[i].x, rightWallPoints[i].y);
-        }
-        wallGraphics.closePath();
-        wallGraphics.fillPath();
-        
-        // Crayon strokes for right wall
-        wallGraphics.lineStyle(0.5, 0x666666, 0.15);
-        for (let y = 0; y < 795; y += 8) {
-            wallGraphics.beginPath();
-            wallGraphics.moveTo(650 + (Math.random() - 0.5) * 2, y + (Math.random() - 0.5) * 2);
-            wallGraphics.lineTo(700 + (Math.random() - 0.5) * 2, y + 15 + (Math.random() - 0.5) * 2);
-            wallGraphics.strokePath();
-        }
-        
-        // Outline right wall
-        wallGraphics.lineStyle(2.5, 0x1a1a1a);
-        wallGraphics.beginPath();
-        wallGraphics.moveTo(645, 0);
-        for (let i = 1; i < rightWallPoints.length - 2; i++) {
-            wallGraphics.lineTo(rightWallPoints[i].x, rightWallPoints[i].y);
-        }
-        wallGraphics.lineTo(645, 795);
-        wallGraphics.lineTo(700, 795);
-        wallGraphics.strokePath();
-        
-        // Wall collision bodies (invisible rectangles)
-        this.walls = this.physics.add.staticGroup();
-        
-        // Create wall collision textures (only if they don't exist)
-        if (!this.textures.exists('wall')) {
-            const wallTexture = this.add.graphics();
-            wallTexture.fillStyle(0x000000, 0);  // Invisible
-            wallTexture.fillRect(0, 0, 50, 795);
-            wallTexture.generateTexture('wall', 50, 795);
-            wallTexture.destroy();
-        }
-        
-        // Add collision walls (positioned so player stays in play area)
-        this.walls.create(27, 397, 'wall');   // Left wall
-        this.walls.create(673, 397, 'wall');  // Right wall
-        
+        this.walls = drawWalls(this);
         
         // === WATER HAZARD (with crayon-like blue fill) ===
-        const waterGraphics = this.add.graphics();
-        
-        // Build wavy surface points
-        const waterPoints = [{x: 0, y: 870}];
-        for (let x = 0; x <= 700; x += 15) {
-            const waveY = 870 + Math.sin(x * 0.05) * 4 + (Math.random() - 0.5) * 2;
-            waterPoints.push({x: x, y: waveY});
-        }
-        
-        // Blue crayon fill for water body
-        waterGraphics.fillStyle(0x4A90D9, 0.24);
-        waterGraphics.beginPath();
-        waterGraphics.moveTo(0, 870);
-        for (const pt of waterPoints) {
-            waterGraphics.lineTo(pt.x, pt.y);
-        }
-        waterGraphics.lineTo(700, 900);  // bottom right
-        waterGraphics.lineTo(0, 900);    // bottom left
-        waterGraphics.closePath();
-        waterGraphics.fillPath();
-        
-        // Crayon strokes for water
-        waterGraphics.lineStyle(0.5, 0x2070B0, 0.2);
-        for (let y = 872; y < 900; y += 5) {
-            waterGraphics.beginPath();
-            waterGraphics.moveTo((Math.random() - 0.5) * 4, y + (Math.random() - 0.5) * 2);
-            waterGraphics.lineTo(700 + (Math.random() - 0.5) * 4, y + 8 + (Math.random() - 0.5) * 2);
-            waterGraphics.strokePath();
-        }
-        
-        // Wavy surface line
-        waterGraphics.lineStyle(2, 0x4A90D9);  // Blue pen color
-        waterGraphics.beginPath();
-        waterGraphics.moveTo(waterPoints[0].x, waterPoints[0].y);
-        for (let i = 1; i < waterPoints.length; i++) {
-            waterGraphics.lineTo(waterPoints[i].x, waterPoints[i].y);
-        }
-        waterGraphics.strokePath();
-        
-        // Invisible zone for water collision detection (below the line)
-        this.waterZone = this.add.zone(350, 885, 700, 30);
-        this.physics.add.existing(this.waterZone, true);  // true = static body
+        this.waterZone = drawWater(this);
         
         
         // === PLATFORMS (using shape library) ===
         this.platforms = this.physics.add.staticGroup();
         
-        // Helper function to draw a sketchy shape
-        this.createSketchyShape = (shapeName, shapeData) => {
-            const g = this.add.graphics();
-            const wobble = () => (Math.random() - 0.5) * 2;
-            
-            g.lineStyle(2, 0x1a1a1a);  // Dark pen color
-            
-            // Check if this is a compound shape (has parts array)
-            if (shapeData.parts) {
-                // Compound shape: check if it has custom visual outline (points) or just draw parts
-                if (shapeData.outlines) {
-                    // Has multiple outline groups - draw each as connected shape
-                    for (const outline of shapeData.outlines) {
-                        // Crayon-like fill
-                        g.fillStyle(0x888888, 0.24);
-                        g.beginPath();
-                        g.moveTo(outline[0].x + 3, outline[0].y + 3);
-                        for (let i = 1; i < outline.length; i++) {
-                            g.lineTo(outline[i].x + 3, outline[i].y + 3);
-                        }
-                        g.closePath();
-                        g.fillPath();
-                    }
-                    
-                    // Add crayon strokes across the whole shape
-                    g.lineStyle(0.5, 0x666666, 0.15);
-                    for (let y = 0; y < shapeData.height; y += 6) {
-                        g.beginPath();
-                        g.moveTo(3 + wobble(), y + 3 + wobble());
-                        g.lineTo(Math.min(shapeData.width, y + 20) + 3 + wobble(), Math.min(shapeData.height, y + 20) + 3 + wobble());
-                        g.strokePath();
-                    }
-                    g.lineStyle(2, 0x1a1a1a);
-                    
-                    // Draw outlines
-                    for (const outline of shapeData.outlines) {
-                        g.beginPath();
-                        g.moveTo(outline[0].x + wobble() + 3, outline[0].y + wobble() + 3);
-                        for (let i = 1; i < outline.length; i++) {
-                            g.lineTo(outline[i].x + wobble() + 3, outline[i].y + wobble() + 3);
-                        }
-                        g.closePath();
-                        g.strokePath();
-                    }
-                } else {
-                    // No custom outline - draw each part as separate rectangle
-                    for (const part of shapeData.parts) {
-                        // Crayon-like fill
-                        g.fillStyle(0x888888, 0.24);
-                        g.fillRect(part.x + 3, part.y + 3, part.w, part.h);
-                    }
-                    
-                    // Add crayon strokes
-                    g.lineStyle(0.5, 0x666666, 0.15);
-                    for (let y = 0; y < shapeData.height; y += 6) {
-                        g.beginPath();
-                        g.moveTo(3 + wobble(), y + 3 + wobble());
-                        g.lineTo(Math.min(shapeData.width, y + 20) + 3 + wobble(), Math.min(shapeData.height, y + 20) + 3 + wobble());
-                        g.strokePath();
-                    }
-                    g.lineStyle(2, 0x1a1a1a);
-                    
-                    // Draw outlines
-                    for (const part of shapeData.parts) {
-                        g.beginPath();
-                        g.moveTo(part.x + wobble() + 3, part.y + wobble() + 3);
-                        g.lineTo(part.x + part.w + wobble() + 3, part.y + wobble() + 3);
-                        g.lineTo(part.x + part.w + wobble() + 3, part.y + part.h + wobble() + 3);
-                        g.lineTo(part.x + wobble() + 3, part.y + part.h + wobble() + 3);
-                        g.lineTo(part.x + wobble() + 3, part.y + wobble() + 3);
-                        g.strokePath();
-                    }
-                }
-            } else {
-                // Simple shape: draw from points array (original behavior)
-                const points = shapeData.points;
-                
-                // Crayon-like fill
-                g.fillStyle(0x888888, 0.24);
-                g.beginPath();
-                g.moveTo(points[0].x + 3, points[0].y + 3);
-                for (let i = 1; i < points.length; i++) {
-                    g.lineTo(points[i].x + 3, points[i].y + 3);
-                }
-                g.closePath();
-                g.fillPath();
-                
-                // Add subtle diagonal crayon strokes
-                g.lineStyle(0.5, 0x666666, 0.15);
-                for (let y = 0; y < shapeData.height; y += 6) {
-                    g.beginPath();
-                    g.moveTo(3 + wobble(), y + 3 + wobble());
-                    g.lineTo(Math.min(shapeData.width, y + 20) + 3 + wobble(), Math.min(shapeData.height, y + 20) + 3 + wobble());
-                    g.strokePath();
-                }
-                g.lineStyle(2, 0x1a1a1a);  // Reset for outline
-                
-                // Outline
-                g.beginPath();
-                g.moveTo(points[0].x + wobble() + 3, points[0].y + wobble() + 3);
-                for (let i = 1; i < points.length; i++) {
-                    g.lineTo(points[i].x + wobble() + 3, points[i].y + wobble() + 3);
-                }
-                g.lineTo(points[0].x + wobble() + 3, points[0].y + wobble() + 3);
-                g.strokePath();
-            }
-            
-            g.generateTexture(shapeName, shapeData.width + 6, shapeData.height + 6);
-            g.destroy();
-        };
-        
-        // Generate textures for all shapes in the library (only if they don't exist)
-        for (const [name, data] of Object.entries(PLATFORM_SHAPES)) {
-            if (!this.textures.exists(name)) {
-                this.createSketchyShape(name, data);
-            }
-        }
+        // Generate textures for all shapes in the library
+        generateAllShapeTextures(this, PLATFORM_SHAPES);
         
         // Select level layout (use passed index or default to 0)
         this.currentLayoutIndex = (this.scene.settings.data && this.scene.settings.data.layoutIndex !== undefined) 
@@ -431,15 +186,8 @@ class PlayScene extends Phaser.Scene {
             padding: { x: 4, y: 2 }
         });
         
-        // R key to restart the scene (reload same layout)
-        this.restartKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
-        // G key to generate new map (next layout)
-        this.newMapKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.G);
-        // F key to toggle fly mode (for testing)
-        this.flyKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
-        this.flyMode = false;
-        // H key to toggle hitbox display
-        this.hitboxKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.H);
+        // Debug controls (R/G/F/H keys)
+        this.debugControls = new DebugControls(this);
         
         // Enemy counter (positioned for notebook canvas)
         this.enemyCountText = this.add.text(60, 32, '', {
@@ -505,6 +253,12 @@ class PlayScene extends Phaser.Scene {
         // Clear existing platforms
         this.platforms.clear(true, true);
         
+        // Clear compound shape visuals (they're not in the platforms group)
+        if (this.compoundVisuals) {
+            this.compoundVisuals.forEach(v => v.destroy());
+        }
+        this.compoundVisuals = [];
+        
         // Clear spawn points
         this.spawnPoints = [];
         
@@ -516,8 +270,9 @@ class PlayScene extends Phaser.Scene {
             if (shapeData.parts) {
                 // Compound shape: create visual-only sprite + separate collision bodies
                 
-                // Add visual sprite (no physics)
+                // Add visual sprite (no physics) - track it for cleanup
                 const visual = this.add.image(plat.x, plat.y, plat.shape);
+                this.compoundVisuals.push(visual);
                 
                 // Create collision bodies for each part
                 for (const part of shapeData.parts) {
@@ -620,6 +375,9 @@ class PlayScene extends Phaser.Scene {
         this.currentLayoutIndex = (this.currentLayoutIndex + 1) % LEVEL_LAYOUTS.length;
         this.loadLayout(LEVEL_LAYOUTS[this.currentLayoutIndex]);
         
+        // Update layout label
+        this.layoutText.setText(`Layout: ${this.currentLayoutIndex + 1}/${LEVEL_LAYOUTS.length}`);
+        
         // Re-add platform and wall collisions
         this.physics.add.collider(this.player, this.platforms);
         this.physics.add.collider(this.player, this.walls);
@@ -674,33 +432,14 @@ class PlayScene extends Phaser.Scene {
     update() {
         // This runs every frame - handle player movement here
         
-        // Check for restart key (same layout)
-        if (Phaser.Input.Keyboard.JustDown(this.restartKey)) {
-            this.scene.restart({ layoutIndex: this.currentLayoutIndex });
-            return;
-        }
-        
-        // Check for new map key (next layout)
-        if (Phaser.Input.Keyboard.JustDown(this.newMapKey)) {
-            const nextIndex = (this.currentLayoutIndex + 1) % LEVEL_LAYOUTS.length;
-            this.scene.restart({ layoutIndex: nextIndex });
-            return;
-        }
-        
-        // Toggle fly mode
-        if (Phaser.Input.Keyboard.JustDown(this.flyKey)) {
-            this.flyMode = !this.flyMode;
-            this.player.body.allowGravity = !this.flyMode;
-            if (this.flyMode) {
-                this.player.setVelocity(0, 0);
+        // Check debug controls (R/G/F/H keys)
+        const debugAction = this.debugControls.update(this.player, this.currentLayoutIndex, LEVEL_LAYOUTS.length);
+        if (debugAction) {
+            if (debugAction.action === 'restart') {
+                this.scene.restart({ layoutIndex: debugAction.layoutIndex });
+                return;
             }
-        }
-        
-        // Toggle hitbox debug display
-        if (Phaser.Input.Keyboard.JustDown(this.hitboxKey)) {
-            if (this.physics.world.debugGraphic) {
-                this.physics.world.debugGraphic.visible = !this.physics.world.debugGraphic.visible;
-            }
+            // flyToggled and hitboxToggled are handled internally by DebugControls
         }
         
         const speed = 120;  // Scaled down for smaller characters
@@ -708,17 +447,18 @@ class PlayScene extends Phaser.Scene {
         const jumpVelocity = -280;  // Scaled down - smaller jump for zoomed-out feel
         
         // Left/Right movement
+        const flyMode = this.debugControls.isFlyMode();
         if (this.cursors.left.isDown) {
-            this.player.setVelocityX(this.flyMode ? -flySpeed : -speed);
+            this.player.setVelocityX(flyMode ? -flySpeed : -speed);
         } else if (this.cursors.right.isDown) {
-            this.player.setVelocityX(this.flyMode ? flySpeed : speed);
+            this.player.setVelocityX(flyMode ? flySpeed : speed);
         } else {
             // No arrow pressed - stop horizontal movement
             this.player.setVelocityX(0);
         }
         
         // Up/Down movement (fly mode) or jumping (normal mode)
-        if (this.flyMode) {
+        if (flyMode) {
             // Fly mode: up/down arrows move vertically
             if (this.cursors.up.isDown) {
                 this.player.setVelocityY(-flySpeed);

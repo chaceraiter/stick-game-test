@@ -1,25 +1,30 @@
 # Current Work Focus
 
-Layout system complete with 18 shapes and 6 layouts. Visual style polished. Good stopping point. Consider refactoring before adding more features.
+Refactoring complete! Codebase is now modular with ES6 imports. PlayScene.js reduced from 780 to 515 lines. Fixed bugs with compound shape cleanup and layout label updates.
 
 - **Project Goal:** Build a browser-based stick figure arena shooter with random level generation (Worms-style vibes, notebook paper aesthetic)
 
-- **Intermediate Goal:** Refactor codebase, then expand shape library and build procedural generator
+- **Intermediate Goal:** Expand shape library and build procedural generator
 
-- **Current Task:** Checkpoint complete. Next: refactor PlayScene.js (780 lines) into smaller modules, then continue with more shapes and generator.
+- **Current Task:** Refactor complete. Next: add more shapes (5-10), then build procedural layout generator.
 
-## Potential Refactoring
+## Completed Refactoring
 
-1. **Split PlayScene.js:**
-   - Shape/platform drawing → `js/drawing/ShapeRenderer.js`
-   - Wall/water drawing → `js/drawing/EnvironmentRenderer.js`
-   - Debug controls → `js/utils/DebugControls.js`
+1. **Converted to ES6 modules** - Clean import/export structure
+2. **Split PlayScene.js** (780→515 lines):
+   - `js/drawing/ShapeRenderer.js` - Platform texture generation
+   - `js/drawing/EnvironmentRenderer.js` - Walls and water drawing
+   - `js/utils/DebugControls.js` - R/G/F/H key handling
+3. **Split PlatformShapes.js** (531→11 lines, now re-export hub):
+   - `js/platforms/ShapeDefinitions.js` - 18 shape definitions
+   - `js/platforms/LayoutDefinitions.js` - 6 layout configs
 
-2. **Split PlatformShapes.js:**
-   - Shape definitions → `js/platforms/ShapeDefinitions.js`
-   - Layout definitions → `js/platforms/LayoutDefinitions.js`
+## Bug Fixes This Session
 
-## Queued Features (After Refactor)
+- Fixed compound shape visuals not clearing on level advance
+- Fixed layout label not updating on level advance
+
+## Queued Features
 
 1. Add more base shapes (5-10)
 2. Shape variations (flip, scale)

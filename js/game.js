@@ -3,6 +3,8 @@
  * This file initializes Phaser with our settings and scenes
  */
 
+import { PlayScene } from './scenes/PlayScene.js';
+
 const config = {
     type: Phaser.AUTO,  // Automatically choose WebGL or Canvas
     width: 700,   // Scaled up notebook paper proportions
