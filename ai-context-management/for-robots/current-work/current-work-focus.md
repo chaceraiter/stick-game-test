@@ -1,9 +1,9 @@
 # Current Work Focus
 
-We have a working playable prototype! The core game loop is functional: player can move, jump between platforms, shoot enemies, complete levels, and progress to randomly-generated next levels. Water hazard adds platforming challenge.
+Playable prototype with notebook paper aesthetic is working. Core game loop complete. Platform shape library and level layouts system in place. Now working through a wishlist of improvements.
 
-- **Project Goal:** Build a browser-based stick figure arena shooter with random level generation (Worms-style vibes)
+- **Project Goal:** Build a browser-based stick figure arena shooter with random level generation (Worms-style vibes, notebook paper aesthetic)
 
-- **Intermediate Goal:** Polish the prototype and add more game feel - better visuals, more variety, additional features from the aspirational list
+- **Intermediate Goal:** Polish the notebook paper visual style and add more game features from the wishlist
 
-- **Current Task:** Checkpoint reached! Next up could be: stick figure sprites, random platform generation, lives/game over system, or sound effects
+- **Current Task:** User defining wishlist of features/improvements to tackle one by one

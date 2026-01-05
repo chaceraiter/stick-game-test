@@ -13,83 +13,130 @@ class PlayScene extends Phaser.Scene {
     }
 
     preload() {
-        // We'll load actual sprites later
-        // For now, we'll draw simple shapes using Phaser's graphics
+        // Load the cropped crumpled notebook paper background
+        this.load.image('notebook-paper', 'assets/notebook-paper-cropped.jpg');
     }
 
     create() {
-        // === WATER HAZARD ===
-        // Water at the bottom of the screen - kills the player!
+        // === NOTEBOOK PAPER BACKGROUND (using cropped image) ===
+        // Paper is pre-cropped to edges, just scale to fit canvas
+        const paper = this.add.image(275, 350, 'notebook-paper');
+        paper.setDisplaySize(550, 700);
+        
+        
+        // === WATER HAZARD (hand-drawn style) ===
         const waterGraphics = this.add.graphics();
-        waterGraphics.fillStyle(0x1a5276);  // Dark blue
-        waterGraphics.fillRect(0, 0, 800, 60);
-        waterGraphics.generateTexture('water', 800, 60);
-        waterGraphics.destroy();
         
-        // Water is just a visual sprite (we'll use a zone for collision)
-        this.add.image(400, 570, 'water');
+        // Light blue fill for water body
+        waterGraphics.fillStyle(0x89CFF0, 0.4);  // Light blue, semi-transparent
+        waterGraphics.fillRect(0, 655, 550, 50);
         
-        // Add some wave effect on top of water
-        const waveGraphics = this.add.graphics();
-        waveGraphics.fillStyle(0x2980b9);  // Lighter blue
-        waveGraphics.fillRect(0, 0, 800, 8);
-        waveGraphics.generateTexture('wave', 800, 8);
-        waveGraphics.destroy();
-        this.add.image(400, 544, 'wave');
+        // Draw wavy water line (hand-drawn style)
+        waterGraphics.lineStyle(2, 0x4A90D9);  // Blue pen color
+        waterGraphics.beginPath();
+        waterGraphics.moveTo(0, 655);
+        
+        // Create wavy line across the top of water
+        for (let x = 0; x <= 550; x += 15) {
+            const waveY = 655 + Math.sin(x * 0.05) * 4 + (Math.random() - 0.5) * 2;
+            waterGraphics.lineTo(x, waveY);
+        }
+        waterGraphics.strokePath();
+        
+        // Second wavy line for more doodled feel
+        waterGraphics.lineStyle(1.5, 0x4A90D9);
+        waterGraphics.beginPath();
+        waterGraphics.moveTo(0, 665);
+        for (let x = 0; x <= 550; x += 12) {
+            const waveY = 665 + Math.sin(x * 0.06 + 1) * 3 + (Math.random() - 0.5) * 2;
+            waterGraphics.lineTo(x, waveY);
+        }
+        waterGraphics.strokePath();
         
         // Invisible zone for water collision detection
-        this.waterZone = this.add.zone(400, 580, 800, 40);
+        this.waterZone = this.add.zone(275, 680, 550, 50);
         this.physics.add.existing(this.waterZone, true);  // true = static body
         
         
-        // === PLATFORMS ===
+        // === PLATFORMS (using shape library) ===
         this.platforms = this.physics.add.staticGroup();
         
-        // Create platform textures
-        const platGraphics = this.add.graphics();
-        platGraphics.fillStyle(0x8B4513);  // Brown
-        platGraphics.fillRect(0, 0, 150, 20);
-        platGraphics.generateTexture('platform', 150, 20);
-        platGraphics.destroy();
+        // Helper function to draw a sketchy shape from points
+        this.createSketchyShape = (shapeName, shapeData) => {
+            const g = this.add.graphics();
+            const wobble = () => (Math.random() - 0.5) * 2;
+            const points = shapeData.points;
+            
+            // Draw sketchy outline following the shape points
+            g.lineStyle(2, 0x1a1a1a);  // Dark pen color
+            g.beginPath();
+            
+            // Move to first point with wobble
+            g.moveTo(points[0].x + wobble() + 3, points[0].y + wobble() + 3);
+            
+            // Draw lines to each subsequent point with wobble
+            for (let i = 1; i < points.length; i++) {
+                g.lineTo(points[i].x + wobble() + 3, points[i].y + wobble() + 3);
+            }
+            
+            // Close the shape
+            g.lineTo(points[0].x + wobble() + 3, points[0].y + wobble() + 3);
+            g.strokePath();
+            
+            // Very light fill
+            g.fillStyle(0x000000, 0.05);
+            g.beginPath();
+            g.moveTo(points[0].x + 3, points[0].y + 3);
+            for (let i = 1; i < points.length; i++) {
+                g.lineTo(points[i].x + 3, points[i].y + 3);
+            }
+            g.closePath();
+            g.fillPath();
+            
+            g.generateTexture(shapeName, shapeData.width + 6, shapeData.height + 6);
+            g.destroy();
+        };
         
-        const smallPlatGraphics = this.add.graphics();
-        smallPlatGraphics.fillStyle(0x8B4513);
-        smallPlatGraphics.fillRect(0, 0, 100, 20);
-        smallPlatGraphics.generateTexture('platform-small', 100, 20);
-        smallPlatGraphics.destroy();
+        // Generate textures for all shapes in the library
+        for (const [name, data] of Object.entries(PLATFORM_SHAPES)) {
+            this.createSketchyShape(name, data);
+        }
         
-        // Layout platforms - player needs places to stand and jump between
-        // Bottom row (just above water)
-        this.platforms.create(75, 520, 'platform');     // Far left
-        this.platforms.create(400, 520, 'platform');    // Center
-        this.platforms.create(725, 520, 'platform');    // Far right
-        
-        // Middle row
-        this.platforms.create(200, 420, 'platform');
-        this.platforms.create(600, 420, 'platform');
-        
-        // Upper row
-        this.platforms.create(100, 320, 'platform-small');
-        this.platforms.create(400, 320, 'platform');
-        this.platforms.create(700, 320, 'platform-small');
-        
-        // Top row
-        this.platforms.create(250, 220, 'platform-small');
-        this.platforms.create(550, 220, 'platform-small')
+        // Select a random level layout (or use first one for now)
+        this.currentLayoutIndex = 0;
+        this.loadLayout(LEVEL_LAYOUTS[this.currentLayoutIndex])
         
         
-        // === PLAYER ===
-        // Create the player as a simple rectangle for now
-        // Later we'll replace this with a proper stick figure sprite
-        
+        // === PLAYER (hand-drawn stick figure) ===
         const playerGraphics = this.add.graphics();
-        playerGraphics.fillStyle(0x2d2d2d);  // Dark gray (stick figure color)
-        playerGraphics.fillRect(0, 0, 20, 40);  // Narrow and tall, like a person
-        playerGraphics.generateTexture('player', 20, 40);
+        playerGraphics.lineStyle(2, 0x1a1a1a);  // Black pen
+        
+        // Simple stick figure: head, body, legs
+        // Head (circle)
+        playerGraphics.strokeCircle(6, 4, 3);
+        // Body (line down)
+        playerGraphics.beginPath();
+        playerGraphics.moveTo(6, 7);
+        playerGraphics.lineTo(6, 14);
+        playerGraphics.strokePath();
+        // Arms (line across)
+        playerGraphics.beginPath();
+        playerGraphics.moveTo(2, 10);
+        playerGraphics.lineTo(10, 10);
+        playerGraphics.strokePath();
+        // Legs (two lines)
+        playerGraphics.beginPath();
+        playerGraphics.moveTo(6, 14);
+        playerGraphics.lineTo(3, 20);
+        playerGraphics.moveTo(6, 14);
+        playerGraphics.lineTo(9, 20);
+        playerGraphics.strokePath();
+        
+        playerGraphics.generateTexture('player', 12, 22);
         playerGraphics.destroy();
         
         // Create player with physics - start on the left bottom platform
-        this.player = this.physics.add.sprite(75, 480, 'player');
+        this.player = this.physics.add.sprite(100, 600, 'player');
         
         // Player physics properties
         this.player.setBounce(0.1);  // Tiny bounce when landing
@@ -119,11 +166,14 @@ class PlayScene extends Phaser.Scene {
         
         
         // === BULLETS ===
-        // Create bullet texture FIRST (small bright rectangle)
+        // === BULLET (hand-drawn dash) ===
         const bulletGraphics = this.add.graphics();
-        bulletGraphics.fillStyle(0xff0000);  // Red laser
-        bulletGraphics.fillRect(0, 0, 12, 4);
-        bulletGraphics.generateTexture('bullet', 12, 4);
+        bulletGraphics.lineStyle(2, 0x1a1a1a);  // Black pen stroke
+        bulletGraphics.beginPath();
+        bulletGraphics.moveTo(0, 2);
+        bulletGraphics.lineTo(8, 2);
+        bulletGraphics.strokePath();
+        bulletGraphics.generateTexture('bullet', 10, 4);
         bulletGraphics.destroy();
         
         // Now create the group that uses the texture
@@ -134,21 +184,42 @@ class PlayScene extends Phaser.Scene {
         
         
         // === ENEMIES ===
-        // Create enemy texture (red-ish stick figure placeholder)
+        // === ENEMY (hand-drawn stick figure in red) ===
         const enemyGraphics = this.add.graphics();
-        enemyGraphics.fillStyle(0xcc3333);  // Red-ish color
-        enemyGraphics.fillRect(0, 0, 20, 40);
-        enemyGraphics.generateTexture('enemy', 20, 40);
+        enemyGraphics.lineStyle(2, 0xcc3333);  // Red pen
+        
+        // Same stick figure shape as player
+        // Head (circle)
+        enemyGraphics.strokeCircle(6, 4, 3);
+        // Body (line down)
+        enemyGraphics.beginPath();
+        enemyGraphics.moveTo(6, 7);
+        enemyGraphics.lineTo(6, 14);
+        enemyGraphics.strokePath();
+        // Arms (line across)
+        enemyGraphics.beginPath();
+        enemyGraphics.moveTo(2, 10);
+        enemyGraphics.lineTo(10, 10);
+        enemyGraphics.strokePath();
+        // Legs (two lines)
+        enemyGraphics.beginPath();
+        enemyGraphics.moveTo(6, 14);
+        enemyGraphics.lineTo(3, 20);
+        enemyGraphics.moveTo(6, 14);
+        enemyGraphics.lineTo(9, 20);
+        enemyGraphics.strokePath();
+        
+        enemyGraphics.generateTexture('enemy', 12, 22);
         enemyGraphics.destroy();
         
         // Create enemies group
         this.enemies = this.physics.add.group();
         
         // Spawn initial enemies on platforms
-        this.spawnEnemy(725, 480);   // Bottom right platform
-        this.spawnEnemy(400, 280);   // Upper middle platform
-        this.spawnEnemy(200, 380);   // Middle left platform
-        this.spawnEnemy(550, 180);   // Top right platform
+        this.spawnEnemy(450, 600);   // Bottom right platform
+        this.spawnEnemy(280, 460);   // Middle platform
+        this.spawnEnemy(380, 390);   // Row 4
+        this.spawnEnemy(380, 250);   // Top platform
         
         // Make enemies collide with platforms (so they sit on them)
         this.physics.add.collider(this.enemies, this.platforms);
@@ -158,38 +229,38 @@ class PlayScene extends Phaser.Scene {
         
         
         // === UI TEXT ===
-        // Show some instructions
-        this.add.text(16, 16, 'Arrow keys to move, Up to jump, Click to shoot', {
-            fontSize: '18px',
-            fill: '#000',
-            backgroundColor: '#fff',
-            padding: { x: 8, y: 4 }
+        // Show some instructions (smaller for notebook canvas)
+        this.add.text(60, 16, 'Arrows: move | Up: jump | Click: shoot', {
+            fontSize: '11px',
+            fill: '#333',
+            backgroundColor: 'rgba(255,255,255,0.8)',
+            padding: { x: 4, y: 2 }
         });
         
-        // Enemy counter
-        this.enemyCountText = this.add.text(16, 50, '', {
-            fontSize: '18px',
-            fill: '#000',
-            backgroundColor: '#fff',
-            padding: { x: 8, y: 4 }
+        // Enemy counter (positioned for notebook canvas)
+        this.enemyCountText = this.add.text(60, 32, '', {
+            fontSize: '11px',
+            fill: '#333',
+            backgroundColor: 'rgba(255,255,255,0.8)',
+            padding: { x: 4, y: 2 }
         });
         this.updateEnemyCount();
         
-        // Level complete text (hidden initially)
-        this.levelCompleteText = this.add.text(400, 280, '🎉 LEVEL COMPLETE! 🎉', {
-            fontSize: '32px',
+        // Level complete text (hidden initially) - centered for 550px canvas
+        this.levelCompleteText = this.add.text(275, 300, '🎉 LEVEL COMPLETE! 🎉', {
+            fontSize: '24px',
             fill: '#fff',
             backgroundColor: '#228B22',
-            padding: { x: 20, y: 10 }
+            padding: { x: 15, y: 8 }
         });
         this.levelCompleteText.setOrigin(0.5);
         this.levelCompleteText.setVisible(false);
         
-        this.clickToContinueText = this.add.text(400, 340, 'Click to continue', {
-            fontSize: '20px',
+        this.clickToContinueText = this.add.text(275, 350, 'Click to continue', {
+            fontSize: '16px',
             fill: '#000',
             backgroundColor: '#fff',
-            padding: { x: 10, y: 5 }
+            padding: { x: 8, y: 4 }
         });
         this.clickToContinueText.setOrigin(0.5);
         this.clickToContinueText.setVisible(false);
@@ -198,35 +269,52 @@ class PlayScene extends Phaser.Scene {
         this.currentLevel = 1;
         this.levelInProgress = true;
         
-        // Level counter display
-        this.levelText = this.add.text(700, 16, 'Level: 1', {
-            fontSize: '18px',
+        // Level counter display (positioned for 550px wide canvas)
+        this.levelText = this.add.text(470, 16, 'Level: 1', {
+            fontSize: '14px',
             fill: '#000',
             backgroundColor: '#fff',
-            padding: { x: 8, y: 4 }
+            padding: { x: 6, y: 3 }
         });
         
-        // Valid spawn positions (x, y) - on platforms only (no ground anymore!)
-        this.spawnPoints = [
-            // Bottom row platforms
-            { x: 75, y: 480 },
-            { x: 400, y: 480 },
-            { x: 725, y: 480 },
-            // Middle row
-            { x: 200, y: 380 },
-            { x: 600, y: 380 },
-            // Upper row
-            { x: 100, y: 280 },
-            { x: 400, y: 280 },
-            { x: 700, y: 280 },
-            // Top row
-            { x: 250, y: 180 },
-            { x: 550, y: 180 },
-        ];
+        // Spawn points will be generated from the layout
+        this.spawnPoints = [];
         
-        // Player start position (on left bottom platform)
-        this.playerStartX = 75;
-        this.playerStartY = 480;
+        // Player start position (will be set by layout)
+        this.playerStartX = 100;
+        this.playerStartY = 600;
+    }
+    
+    /**
+     * Load a level layout from the library
+     */
+    loadLayout(layout) {
+        // Clear existing platforms
+        this.platforms.clear(true, true);
+        
+        // Clear spawn points
+        this.spawnPoints = [];
+        
+        // Create platforms from layout
+        for (const plat of layout.platforms) {
+            const shapeData = PLATFORM_SHAPES[plat.shape];
+            const platform = this.platforms.create(plat.x, plat.y, plat.shape);
+            
+            // Add this platform position as a spawn point
+            // Spawn point is on top of the platform
+            this.spawnPoints.push({
+                x: plat.x,
+                y: plat.y - shapeData.height / 2 - 15  // Above the platform
+            });
+        }
+        
+        // Set player start to first platform
+        if (layout.platforms.length > 0) {
+            const firstPlat = layout.platforms[0];
+            const firstShape = PLATFORM_SHAPES[firstPlat.shape];
+            this.playerStartX = firstPlat.x;
+            this.playerStartY = firstPlat.y - firstShape.height / 2 - 15;
+        }
     }
     
     /**
@@ -276,7 +364,7 @@ class PlayScene extends Phaser.Scene {
     }
     
     /**
-     * Start the next level with random enemy positions
+     * Start the next level - cycle through layouts and spawn enemies
      */
     startNextLevel() {
         this.currentLevel++;
@@ -292,18 +380,26 @@ class PlayScene extends Phaser.Scene {
             bullet.setVisible(false);
         });
         
+        // Cycle to next layout (or random)
+        this.currentLayoutIndex = (this.currentLayoutIndex + 1) % LEVEL_LAYOUTS.length;
+        this.loadLayout(LEVEL_LAYOUTS[this.currentLayoutIndex]);
+        
+        // Re-add platform collisions
+        this.physics.add.collider(this.player, this.platforms);
+        this.physics.add.collider(this.enemies, this.platforms);
+        
         // Spawn enemies at random positions
         // More enemies as levels progress (4 + 1 per 2 levels, max based on spawn points)
         const enemyCount = Math.min(4 + Math.floor(this.currentLevel / 2), this.spawnPoints.length - 1);
         
         // Filter out player start position from spawn points for enemies
         const enemySpawnPoints = this.spawnPoints.filter(
-            p => !(p.x === this.playerStartX && p.y === this.playerStartY)
+            p => !(Math.abs(p.x - this.playerStartX) < 10 && Math.abs(p.y - this.playerStartY) < 10)
         );
         
         // Shuffle and pick
         const shuffled = Phaser.Utils.Array.Shuffle([...enemySpawnPoints]);
-        for (let i = 0; i < enemyCount; i++) {
+        for (let i = 0; i < enemyCount && i < shuffled.length; i++) {
             this.spawnEnemy(shuffled[i].x, shuffled[i].y);
         }
         
@@ -333,8 +429,8 @@ class PlayScene extends Phaser.Scene {
     update() {
         // This runs every frame - handle player movement here
         
-        const speed = 200;
-        const jumpVelocity = -500;  // Negative because Y goes down in screen coords (higher = more negative)
+        const speed = 120;  // Scaled down for smaller characters
+        const jumpVelocity = -280;  // Scaled down - smaller jump for zoomed-out feel
         
         // Left/Right movement
         if (this.cursors.left.isDown) {
@@ -354,7 +450,7 @@ class PlayScene extends Phaser.Scene {
         
         // Clean up bullets that have left the screen
         this.bullets.children.each((bullet) => {
-            if (bullet.active && (bullet.x < -50 || bullet.x > 850 || bullet.y < -50 || bullet.y > 650)) {
+            if (bullet.active && (bullet.x < -50 || bullet.x > 600 || bullet.y < -50 || bullet.y > 750)) {
                 bullet.setActive(false);
                 bullet.setVisible(false);
             }

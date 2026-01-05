@@ -5,8 +5,8 @@
 
 const config = {
     type: Phaser.AUTO,  // Automatically choose WebGL or Canvas
-    width: 800,
-    height: 600,
+    width: 550,   // Notebook paper proportions (portrait-ish, ~8.5:11 ratio)
+    height: 700,
     parent: 'game-container',  // DOM element to put the game in
     
     // Physics configuration
@@ -18,8 +18,8 @@ const config = {
         }
     },
     
-    // Background color (sky blue-ish)
-    backgroundColor: '#87CEEB',
+    // Background color (white fallback - actual paper image loads on top)
+    backgroundColor: '#ffffff',
     
     // Scenes to include (order matters - first one starts automatically)
     scene: [PlayScene]
