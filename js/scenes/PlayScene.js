@@ -11,6 +11,7 @@ import { DebugControls } from '../utils/DebugControls.js';
 import { PLATFORM_SHAPES, LEVEL_LAYOUTS } from '../platforms/PlatformShapes.js';
 import { drawWalls, drawWater } from '../drawing/EnvironmentRenderer.js';
 import { generateAllShapeTextures } from '../drawing/ShapeRenderer.js';
+import { getWeaponBySlot } from '../weapons/WeaponDefinitions.js';
 
 export class PlayScene extends Phaser.Scene {
     constructor() {
@@ -94,52 +95,21 @@ export class PlayScene extends Phaser.Scene {
         this.physics.add.overlap(this.player, this.waterZone, this.playerDied, null, this);
         
         
+        // === WEAPON STATE ===
+        this.currentWeaponSlot = 1;
+        this.currentWeapon = getWeaponBySlot(this.currentWeaponSlot);
+        
         // === CROSSHAIR (aim indicator) ===
-        // Create crosshair texture - two lines with gap in middle
-        if (!this.textures.exists('crosshair')) {
-            const crosshairGraphics = this.add.graphics();
-            const size = 17;  // About player height
-            const gap = 4;    // Gap in center
-            const halfSize = size / 2;
-            const halfGap = gap / 2;
-            
-            crosshairGraphics.lineStyle(1.5, 0x1a1a1a, 0.6);  // Semi-transparent dark line
-            
-            // Horizontal line (left segment)
-            crosshairGraphics.beginPath();
-            crosshairGraphics.moveTo(0, halfSize);
-            crosshairGraphics.lineTo(halfSize - halfGap, halfSize);
-            crosshairGraphics.strokePath();
-            
-            // Horizontal line (right segment)
-            crosshairGraphics.beginPath();
-            crosshairGraphics.moveTo(halfSize + halfGap, halfSize);
-            crosshairGraphics.lineTo(size, halfSize);
-            crosshairGraphics.strokePath();
-            
-            // Vertical line (top segment)
-            crosshairGraphics.beginPath();
-            crosshairGraphics.moveTo(halfSize, 0);
-            crosshairGraphics.lineTo(halfSize, halfSize - halfGap);
-            crosshairGraphics.strokePath();
-            
-            // Vertical line (bottom segment)
-            crosshairGraphics.beginPath();
-            crosshairGraphics.moveTo(halfSize, halfSize + halfGap);
-            crosshairGraphics.lineTo(halfSize, size);
-            crosshairGraphics.strokePath();
-            
-            crosshairGraphics.generateTexture('crosshair', size, size);
-            crosshairGraphics.destroy();
-        }
+        const crosshairKey = this.getCrosshairKey(this.currentWeapon.crosshairGap);
+        this.ensureCrosshairTexture(crosshairKey, this.currentWeapon.crosshairGap);
         
         // Create crosshair sprite
-        this.crosshair = this.add.image(0, 0, 'crosshair');
+        this.crosshair = this.add.image(0, 0, crosshairKey);
         this.crosshair.setAlpha(0.7);  // Semi-transparent
         
         // Aim state - angle in radians (0 = right, increases counterclockwise)
         this.aimAngle = 0;
-        this.aimDistance = 85;  // 5 player heights (5 * 17)
+        this.aimDistance = this.currentWeapon.crosshairDistance;
         
         
         // === INPUT ===
@@ -177,6 +147,15 @@ export class PlayScene extends Phaser.Scene {
         this.shootKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
         this.canShoot = true;  // Prevent holding space for auto-fire
         
+        // Number keys for weapon switching (1-5)
+        this.weaponKeys = {
+            one: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE),
+            two: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TWO),
+            three: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.THREE),
+            four: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FOUR),
+            five: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FIVE)
+        };
+        
         
         // === BULLETS ===
         // === BULLET (hand-drawn dash) ===
@@ -184,10 +163,10 @@ export class PlayScene extends Phaser.Scene {
             const bulletGraphics = this.add.graphics();
             bulletGraphics.lineStyle(2, 0x1a1a1a);  // Black pen stroke
             bulletGraphics.beginPath();
-            bulletGraphics.moveTo(0, 2);
-            bulletGraphics.lineTo(8, 2);
+            bulletGraphics.moveTo(0, 1.5);
+            bulletGraphics.lineTo(6, 1.5);
             bulletGraphics.strokePath();
-            bulletGraphics.generateTexture('bullet', 10, 4);
+            bulletGraphics.generateTexture('bullet', 8, 3);
             bulletGraphics.destroy();
         }
         
@@ -266,6 +245,14 @@ export class PlayScene extends Phaser.Scene {
         });
         this.updateEnemyCount();
         
+        // Weapon display (small, tucked under enemy count)
+        this.weaponText = this.add.text(60, 48, `Weapon: ${this.currentWeapon.name}`, {
+            fontSize: '11px',
+            fill: '#333',
+            backgroundColor: 'rgba(255,255,255,0.8)',
+            padding: { x: 4, y: 2 }
+        });
+        
         // Level complete text (hidden initially) - centered for 700px canvas
         this.levelCompleteText = this.add.text(350, 400, '🎉 LEVEL COMPLETE! 🎉', {
             fontSize: '28px',
@@ -299,7 +286,7 @@ export class PlayScene extends Phaser.Scene {
         });
         
         // Layout number display (for debugging)
-        this.layoutText = this.add.text(60, 48, `Layout: ${this.currentLayoutIndex + 1}/${LEVEL_LAYOUTS.length}`, {
+        this.layoutText = this.add.text(60, 64, `Layout: ${this.currentLayoutIndex + 1}/${LEVEL_LAYOUTS.length}`, {
             fontSize: '11px',
             fill: '#666',
             backgroundColor: 'rgba(255,255,255,0.8)',
@@ -521,26 +508,28 @@ export class PlayScene extends Phaser.Scene {
         const upDown = this.cursors.up.isDown || this.wasd.up.isDown;
         const downDown = this.cursors.down.isDown || this.wasd.down.isDown;
         
-        if (leftDown) {
-            this.player.setVelocityX(flyMode ? -flySpeed : -speed);
-        } else if (rightDown) {
-            this.player.setVelocityX(flyMode ? flySpeed : speed);
-        } else {
-            // No key pressed - stop horizontal movement
-            this.player.setVelocityX(0);
-        }
-        
-        // Up/Down movement (fly mode) or jumping (normal mode)
         if (flyMode) {
-            // Fly mode: up/down moves vertically
-            if (upDown) {
-                this.player.setVelocityY(-flySpeed);
-            } else if (downDown) {
-                this.player.setVelocityY(flySpeed);
+            const inputX = (rightDown ? 1 : 0) - (leftDown ? 1 : 0);
+            const inputY = (downDown ? 1 : 0) - (upDown ? 1 : 0);
+            if (inputX !== 0 || inputY !== 0) {
+                const length = Math.hypot(inputX, inputY);
+                this.player.setVelocity(
+                    (inputX / length) * flySpeed,
+                    (inputY / length) * flySpeed
+                );
             } else {
-                this.player.setVelocityY(0);
+                this.player.setVelocity(0, 0);
             }
         } else {
+            if (leftDown) {
+                this.player.setVelocityX(-speed);
+            } else if (rightDown) {
+                this.player.setVelocityX(speed);
+            } else {
+                // No key pressed - stop horizontal movement
+                this.player.setVelocityX(0);
+            }
+            
             // Normal mode: jumping when touching ground
             if (upDown && this.player.body.blocked.down) {
                 this.player.setVelocityY(jumpVelocity);
@@ -554,6 +543,19 @@ export class PlayScene extends Phaser.Scene {
         }
         if (this.aimKeys.rotateRight.isDown) {
             this.aimAngle += this.aimRotationSpeed * deltaTime;
+        }
+        
+        // Weapon switching (1-5)
+        if (Phaser.Input.Keyboard.JustDown(this.weaponKeys.one)) {
+            this.switchWeapon(1);
+        } else if (Phaser.Input.Keyboard.JustDown(this.weaponKeys.two)) {
+            this.switchWeapon(2);
+        } else if (Phaser.Input.Keyboard.JustDown(this.weaponKeys.three)) {
+            this.switchWeapon(3);
+        } else if (Phaser.Input.Keyboard.JustDown(this.weaponKeys.four)) {
+            this.switchWeapon(4);
+        } else if (Phaser.Input.Keyboard.JustDown(this.weaponKeys.five)) {
+            this.switchWeapon(5);
         }
         
         // Spacebar shooting
@@ -578,38 +580,104 @@ export class PlayScene extends Phaser.Scene {
         });
     }
     
+    getCrosshairKey(gap) {
+        return `crosshair-gap-${gap}`;
+    }
+    
+    ensureCrosshairTexture(key, gap) {
+        if (this.textures.exists(key)) return;
+        
+        const crosshairGraphics = this.add.graphics();
+        const size = 17;  // About player height
+        const halfSize = size / 2;
+        const halfGap = gap / 2;
+        
+        crosshairGraphics.lineStyle(1.5, 0x1a1a1a, 0.6);  // Semi-transparent dark line
+        
+        // Horizontal line (left segment)
+        crosshairGraphics.beginPath();
+        crosshairGraphics.moveTo(0, halfSize);
+        crosshairGraphics.lineTo(halfSize - halfGap, halfSize);
+        crosshairGraphics.strokePath();
+        
+        // Horizontal line (right segment)
+        crosshairGraphics.beginPath();
+        crosshairGraphics.moveTo(halfSize + halfGap, halfSize);
+        crosshairGraphics.lineTo(size, halfSize);
+        crosshairGraphics.strokePath();
+        
+        // Vertical line (top segment)
+        crosshairGraphics.beginPath();
+        crosshairGraphics.moveTo(halfSize, 0);
+        crosshairGraphics.lineTo(halfSize, halfSize - halfGap);
+        crosshairGraphics.strokePath();
+        
+        // Vertical line (bottom segment)
+        crosshairGraphics.beginPath();
+        crosshairGraphics.moveTo(halfSize, halfSize + halfGap);
+        crosshairGraphics.lineTo(halfSize, size);
+        crosshairGraphics.strokePath();
+        
+        crosshairGraphics.generateTexture(key, size, size);
+        crosshairGraphics.destroy();
+    }
+    
+    switchWeapon(slot) {
+        if (this.currentWeaponSlot === slot) return;
+        
+        this.currentWeaponSlot = slot;
+        this.currentWeapon = getWeaponBySlot(slot);
+        this.aimDistance = this.currentWeapon.crosshairDistance;
+        
+        const crosshairKey = this.getCrosshairKey(this.currentWeapon.crosshairGap);
+        this.ensureCrosshairTexture(crosshairKey, this.currentWeapon.crosshairGap);
+        this.crosshair.setTexture(crosshairKey);
+        if (this.weaponText) {
+            this.weaponText.setText(`Weapon: ${this.currentWeapon.name}`);
+        }
+    }
+    
     /**
      * Shoot a bullet toward a target position
      * @param {number} targetX - X coordinate to shoot toward
      * @param {number} targetY - Y coordinate to shoot toward
      */
     shoot(targetX, targetY) {
-        // Get a bullet from the group (reuses inactive bullets)
-        const bullet = this.bullets.get(this.player.x, this.player.y);
-        
-        if (!bullet) return;  // No bullets available
-        
-        bullet.setActive(true);
-        bullet.setVisible(true);
-        
         // Calculate direction to target
-        const angle = Phaser.Math.Angle.Between(
+        const baseAngle = Phaser.Math.Angle.Between(
             this.player.x, this.player.y,
             targetX, targetY
         );
         
-        // Set bullet velocity toward target
-        const bulletSpeed = 600;
-        bullet.setVelocity(
-            Math.cos(angle) * bulletSpeed,
-            Math.sin(angle) * bulletSpeed
-        );
+        const pelletCount = this.currentWeapon.pellets;
+        const spread = this.currentWeapon.spread;
+        const pelletSpreadStart = -spread / 2;
+        const pelletSpreadStep = pelletCount > 1 ? (spread / (pelletCount - 1)) : 0;
         
-        // Rotate bullet to face direction of travel
-        bullet.setRotation(angle);
-        
-        // Bullets shouldn't be affected by gravity
-        bullet.body.allowGravity = false;
+        for (let i = 0; i < pelletCount; i++) {
+            const bullet = this.bullets.get(this.player.x, this.player.y);
+            if (!bullet) return;  // No bullets available
+            
+            bullet.setActive(true);
+            bullet.setVisible(true);
+            bullet.setScale(this.currentWeapon.projectileSize);
+            
+            const angle = baseAngle + (pelletSpreadStart + pelletSpreadStep * i);
+            const directionX = Math.cos(angle);
+            const directionY = Math.sin(angle);
+            
+            // Set bullet velocity toward target (normalized so diagonals are consistent)
+            const bulletSpeed = this.currentWeapon.velocity;
+            bullet.setVelocity(
+                directionX * bulletSpeed,
+                directionY * bulletSpeed
+            );
+            
+            // Rotate bullet to face direction of travel
+            bullet.setRotation(angle);
+            
+            // Bullets shouldn't be affected by gravity
+            bullet.body.allowGravity = false;
+        }
     }
 }
-
