@@ -5,8 +5,8 @@
 
 const config = {
     type: Phaser.AUTO,  // Automatically choose WebGL or Canvas
-    width: 550,   // Notebook paper proportions (portrait-ish, ~8.5:11 ratio)
-    height: 700,
+    width: 700,   // Scaled up notebook paper proportions
+    height: 900,
     parent: 'game-container',  // DOM element to put the game in
     
     // Physics configuration

@@ -1,9 +1,9 @@
 # Current Work Focus
 
-Playable prototype with notebook paper aesthetic is working. Core game loop complete. Platform shape library and level layouts system in place. Now working through a wishlist of improvements.
+Playable prototype at larger scale (700x900) with full notebook paper aesthetic. Platform shape library complete with 15 shapes and 5 mixed layouts. Walls and water hazard in place. Ready to refine visual details.
 
 - **Project Goal:** Build a browser-based stick figure arena shooter with random level generation (Worms-style vibes, notebook paper aesthetic)
 
-- **Intermediate Goal:** Polish the notebook paper visual style and add more game features from the wishlist
+- **Intermediate Goal:** Refine visual scale and proportions to match the hand-drawn reference style
 
-- **Current Task:** User defining wishlist of features/improvements to tackle one by one
+- **Current Task:** Wishlist defined - next steps are: reduce character size, simplify water, adjust wall heights, tweak platform layouts

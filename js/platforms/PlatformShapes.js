@@ -1,221 +1,347 @@
 /**
  * PlatformShapes.js - Library of hand-crafted platform shapes
  * 
- * Each shape is defined as an array of {x, y} points that form the outline.
- * Shapes are drawn clockwise starting from top-left.
- * The physics hitbox will be a simplified rectangle based on width/height.
+ * Scaled based on reference image with stick figure:
+ * - Stick figure is ~12x22 pixels
+ * - Flat platforms are thin (~8-10px tall)
+ * - Long platforms are ~100-120px wide
+ * - Tall blocks are ~50-80px tall
  */
 
 const PLATFORM_SHAPES = {
     
-    // === BASIC SHAPES ===
+    // === FLAT PLATFORMS (thin, like lines on paper) ===
     
-    // Simple flat platform (wide)
-    basic: {
+    // Long flat platform (~8-10x character width)
+    flatLong: {
         points: [
-            {x: 0, y: 0}, {x: 80, y: 0}, {x: 80, y: 12}, {x: 0, y: 12}
+            {x: 0, y: 0}, {x: 120, y: 0}, {x: 120, y: 8}, {x: 0, y: 8}
         ],
-        width: 80,
-        height: 12
+        width: 120,
+        height: 8
     },
     
-    // Smaller flat platform
-    basicSmall: {
+    // Medium flat platform (~5-6x character width)
+    flatMedium: {
         points: [
-            {x: 0, y: 0}, {x: 55, y: 0}, {x: 55, y: 12}, {x: 0, y: 12}
+            {x: 0, y: 0}, {x: 70, y: 0}, {x: 70, y: 8}, {x: 0, y: 8}
+        ],
+        width: 70,
+        height: 8
+    },
+    
+    // Small flat platform (~3x character width)
+    flatSmall: {
+        points: [
+            {x: 0, y: 0}, {x: 40, y: 0}, {x: 40, y: 8}, {x: 0, y: 8}
+        ],
+        width: 40,
+        height: 8
+    },
+    
+    // Tiny platform (just wider than character)
+    flatTiny: {
+        points: [
+            {x: 0, y: 0}, {x: 25, y: 0}, {x: 25, y: 8}, {x: 0, y: 8}
+        ],
+        width: 25,
+        height: 8
+    },
+    
+    // === L-SHAPES / STAIRS ===
+    
+    // L-shape stepping down-right (like in reference)
+    lShapeDownRight: {
+        points: [
+            {x: 0, y: 0}, {x: 35, y: 0}, {x: 35, y: 25},
+            {x: 70, y: 25}, {x: 70, y: 35}, {x: 0, y: 35}
+        ],
+        width: 70,
+        height: 35
+    },
+    
+    // L-shape stepping down-left
+    lShapeDownLeft: {
+        points: [
+            {x: 35, y: 0}, {x: 70, y: 0}, {x: 70, y: 35},
+            {x: 0, y: 35}, {x: 0, y: 25}, {x: 35, y: 25}
+        ],
+        width: 70,
+        height: 35
+    },
+    
+    // === TALL BLOCKS (like in reference right side) ===
+    
+    // Tall block (~3x character height)
+    blockTall: {
+        points: [
+            {x: 0, y: 0}, {x: 35, y: 0}, {x: 35, y: 65}, {x: 0, y: 65}
+        ],
+        width: 35,
+        height: 65
+    },
+    
+    // Wide tall block (like the chunky ones in reference)
+    blockWide: {
+        points: [
+            {x: 0, y: 0}, {x: 55, y: 0}, {x: 55, y: 50}, {x: 0, y: 50}
         ],
         width: 55,
-        height: 12
-    },
-    
-    // Tiny platform (for tricky jumps)
-    tiny: {
-        points: [
-            {x: 0, y: 0}, {x: 30, y: 0}, {x: 30, y: 10}, {x: 0, y: 10}
-        ],
-        width: 30,
-        height: 10
-    },
-    
-    // === IRREGULAR SHAPES (like the example-map) ===
-    
-    // L-shape facing right
-    lShapeRight: {
-        points: [
-            {x: 0, y: 0}, {x: 40, y: 0}, {x: 40, y: 25},
-            {x: 70, y: 25}, {x: 70, y: 37}, {x: 0, y: 37}
-        ],
-        width: 70,
-        height: 37
-    },
-    
-    // L-shape facing left
-    lShapeLeft: {
-        points: [
-            {x: 30, y: 0}, {x: 70, y: 0}, {x: 70, y: 37},
-            {x: 0, y: 37}, {x: 0, y: 25}, {x: 30, y: 25}
-        ],
-        width: 70,
-        height: 37
-    },
-    
-    // Step up (left to right)
-    stepUp: {
-        points: [
-            {x: 0, y: 20}, {x: 35, y: 20}, {x: 35, y: 0},
-            {x: 75, y: 0}, {x: 75, y: 12}, {x: 45, y: 12},
-            {x: 45, y: 32}, {x: 0, y: 32}
-        ],
-        width: 75,
-        height: 32
-    },
-    
-    // Step down (left to right)
-    stepDown: {
-        points: [
-            {x: 0, y: 0}, {x: 40, y: 0}, {x: 40, y: 20},
-            {x: 75, y: 20}, {x: 75, y: 32}, {x: 0, y: 32}
-        ],
-        width: 75,
-        height: 32
-    },
-    
-    // Bump/hill shape
-    bump: {
-        points: [
-            {x: 0, y: 15}, {x: 20, y: 5}, {x: 40, y: 0},
-            {x: 60, y: 5}, {x: 80, y: 15}, {x: 80, y: 22},
-            {x: 0, y: 22}
-        ],
-        width: 80,
-        height: 22
-    },
-    
-    // Notched platform (gap in middle)
-    notched: {
-        points: [
-            {x: 0, y: 0}, {x: 30, y: 0}, {x: 30, y: 8},
-            {x: 50, y: 8}, {x: 50, y: 0}, {x: 80, y: 0},
-            {x: 80, y: 12}, {x: 0, y: 12}
-        ],
-        width: 80,
-        height: 12
-    },
-    
-    // Thick block
-    block: {
-        points: [
-            {x: 0, y: 0}, {x: 45, y: 0}, {x: 45, y: 30}, {x: 0, y: 30}
-        ],
-        width: 45,
-        height: 30
-    },
-    
-    // Tall thin pillar
-    pillar: {
-        points: [
-            {x: 0, y: 0}, {x: 20, y: 0}, {x: 20, y: 50}, {x: 0, y: 50}
-        ],
-        width: 20,
         height: 50
     },
     
-    // Slanted top (ramp-ish, but flat for physics)
-    slant: {
+    // Short thick block
+    blockShort: {
         points: [
-            {x: 0, y: 15}, {x: 70, y: 0}, {x: 70, y: 12}, {x: 0, y: 27}
+            {x: 0, y: 0}, {x: 40, y: 0}, {x: 40, y: 30}, {x: 0, y: 30}
         ],
-        width: 70,
-        height: 27
+        width: 40,
+        height: 30
+    },
+    
+    // === T-SHAPES / SMALL PIECES ===
+    
+    // T-shape (like the small cross piece in reference)
+    tShape: {
+        points: [
+            {x: 10, y: 0}, {x: 30, y: 0}, {x: 30, y: 15},
+            {x: 40, y: 15}, {x: 40, y: 25}, {x: 0, y: 25},
+            {x: 0, y: 15}, {x: 10, y: 15}
+        ],
+        width: 40,
+        height: 25
+    },
+    
+    // Small pillar (vertical piece)
+    pillar: {
+        points: [
+            {x: 0, y: 0}, {x: 18, y: 0}, {x: 18, y: 45}, {x: 0, y: 45}
+        ],
+        width: 18,
+        height: 45
+    },
+    
+    // === SPECIAL SHAPES ===
+    
+    // Cup/D-shape (like the semicircle at top of reference)
+    cupShape: {
+        points: [
+            {x: 5, y: 0}, {x: 25, y: 0}, {x: 30, y: 8},
+            {x: 30, y: 20}, {x: 0, y: 20}, {x: 0, y: 8}
+        ],
+        width: 30,
+        height: 20
+    },
+    
+    // Small oval/rock (like bottom center of reference)
+    rock: {
+        points: [
+            {x: 5, y: 0}, {x: 20, y: 0}, {x: 25, y: 8},
+            {x: 20, y: 16}, {x: 5, y: 16}, {x: 0, y: 8}
+        ],
+        width: 25,
+        height: 16
+    },
+    
+    // Wide platform with bumpy top (like the wavy one in reference)
+    bumpyWide: {
+        points: [
+            {x: 0, y: 5}, {x: 20, y: 0}, {x: 50, y: 3}, {x: 80, y: 0}, {x: 100, y: 5},
+            {x: 100, y: 15}, {x: 0, y: 15}
+        ],
+        width: 100,
+        height: 15
+    },
+    
+    // Notched block (block with bite taken out)
+    notchedBlock: {
+        points: [
+            {x: 0, y: 0}, {x: 50, y: 0}, {x: 50, y: 20},
+            {x: 35, y: 20}, {x: 35, y: 35}, {x: 50, y: 35},
+            {x: 50, y: 55}, {x: 0, y: 55}
+        ],
+        width: 50,
+        height: 55
     }
 };
 
 
 /**
- * Predefined level layouts - arrays of platform placements
- * Each placement has: shape name, x position, y position
+ * Predefined level layouts - all mixed variety of shapes
+ * Canvas is 700x900, water at y=845, walls at x=55 and x=645
+ * Playable area roughly x: 75-625, y: 100-800
  */
 const LEVEL_LAYOUTS = [
-    // Layout 1: Basic scattered platforms
+    // Layout 1
     {
-        name: "scattered",
+        name: "mix1",
         platforms: [
-            { shape: 'basic', x: 100, y: 620 },
-            { shape: 'basic', x: 275, y: 620 },
-            { shape: 'basic', x: 450, y: 620 },
-            { shape: 'basicSmall', x: 180, y: 550 },
-            { shape: 'basicSmall', x: 400, y: 550 },
-            { shape: 'basic', x: 280, y: 480 },
-            { shape: 'basicSmall', x: 80, y: 480 },
-            { shape: 'basicSmall', x: 470, y: 480 },
-            { shape: 'basicSmall', x: 170, y: 410 },
-            { shape: 'basic', x: 380, y: 410 },
-            { shape: 'basic', x: 100, y: 340 },
-            { shape: 'basicSmall', x: 300, y: 340 },
-            { shape: 'basicSmall', x: 470, y: 340 },
-            { shape: 'basicSmall', x: 200, y: 270 },
-            { shape: 'basicSmall', x: 380, y: 270 }
+            // Bottom (y: 780-810)
+            { shape: 'flatLong', x: 130, y: 800 },
+            { shape: 'blockShort', x: 360, y: 780 },
+            { shape: 'flatMedium', x: 540, y: 800 },
+            // Lower-mid (y: 680-720)
+            { shape: 'lShapeDownRight', x: 150, y: 710 },
+            { shape: 'flatSmall', x: 380, y: 685 },
+            { shape: 'blockWide', x: 550, y: 700 },
+            // Mid (y: 570-610)
+            { shape: 'flatMedium', x: 130, y: 595 },
+            { shape: 'tShape', x: 330, y: 580 },
+            { shape: 'flatLong', x: 490, y: 605 },
+            // Upper-mid (y: 460-500)
+            { shape: 'pillar', x: 190, y: 490 },
+            { shape: 'flatMedium', x: 360, y: 490 },
+            { shape: 'lShapeDownLeft', x: 540, y: 500 },
+            // Upper (y: 360-400)
+            { shape: 'flatSmall', x: 130, y: 390 },
+            { shape: 'blockShort', x: 320, y: 380 },
+            { shape: 'flatMedium', x: 510, y: 400 },
+            // Top (y: 250-300)
+            { shape: 'flatMedium', x: 190, y: 285 },
+            { shape: 'flatSmall', x: 410, y: 260 },
+            { shape: 'flatSmall', x: 580, y: 295 },
+            // Very top (y: 130-180)
+            { shape: 'flatSmall', x: 130, y: 170 },
+            { shape: 'flatLong', x: 360, y: 155 },
+            { shape: 'flatTiny', x: 590, y: 180 }
         ]
     },
     
-    // Layout 2: L-shapes and steps
+    // Layout 2
     {
-        name: "angular",
+        name: "mix2",
         platforms: [
-            { shape: 'basic', x: 100, y: 620 },
-            { shape: 'lShapeRight', x: 280, y: 600 },
-            { shape: 'basic', x: 450, y: 620 },
-            { shape: 'stepUp', x: 120, y: 530 },
-            { shape: 'lShapeLeft', x: 380, y: 520 },
-            { shape: 'basicSmall', x: 250, y: 450 },
-            { shape: 'stepDown', x: 400, y: 420 },
-            { shape: 'lShapeRight', x: 80, y: 380 },
-            { shape: 'basic', x: 280, y: 350 },
-            { shape: 'basicSmall', x: 470, y: 340 },
-            { shape: 'basicSmall', x: 180, y: 280 },
-            { shape: 'basicSmall', x: 380, y: 280 }
+            // Bottom
+            { shape: 'flatMedium', x: 100, y: 800 },
+            { shape: 'rock', x: 280, y: 785 },
+            { shape: 'flatLong', x: 490, y: 800 },
+            // Lower-mid
+            { shape: 'blockTall', x: 130, y: 700 },
+            { shape: 'bumpyWide', x: 320, y: 710 },
+            { shape: 'flatSmall', x: 550, y: 695 },
+            // Mid
+            { shape: 'flatSmall', x: 130, y: 595 },
+            { shape: 'cupShape', x: 255, y: 585 },
+            { shape: 'flatMedium', x: 410, y: 605 },
+            { shape: 'blockShort', x: 580, y: 585 },
+            // Upper-mid
+            { shape: 'lShapeDownRight', x: 130, y: 490 },
+            { shape: 'flatLong', x: 360, y: 475 },
+            { shape: 'flatTiny', x: 590, y: 465 },
+            // Upper
+            { shape: 'flatMedium', x: 190, y: 375 },
+            { shape: 'pillar', x: 410, y: 385 },
+            { shape: 'flatSmall', x: 550, y: 360 },
+            // Top
+            { shape: 'flatSmall', x: 130, y: 260 },
+            { shape: 'flatMedium', x: 330, y: 270 },
+            { shape: 'lShapeDownLeft', x: 540, y: 260 },
+            // Very top
+            { shape: 'flatLong', x: 230, y: 155 },
+            { shape: 'flatSmall', x: 540, y: 140 }
         ]
     },
     
-    // Layout 3: Pillar heavy
+    // Layout 3
     {
-        name: "pillars",
+        name: "mix3",
         platforms: [
-            { shape: 'basic', x: 80, y: 620 },
-            { shape: 'basic', x: 275, y: 620 },
-            { shape: 'basic', x: 470, y: 620 },
-            { shape: 'pillar', x: 150, y: 570 },
-            { shape: 'pillar', x: 400, y: 570 },
-            { shape: 'basic', x: 200, y: 500 },
-            { shape: 'basicSmall', x: 350, y: 480 },
-            { shape: 'block', x: 100, y: 430 },
-            { shape: 'pillar', x: 280, y: 420 },
-            { shape: 'basicSmall', x: 420, y: 400 },
-            { shape: 'basic', x: 180, y: 330 },
-            { shape: 'basic', x: 380, y: 320 },
-            { shape: 'basicSmall', x: 280, y: 260 }
+            // Bottom
+            { shape: 'flatLong', x: 150, y: 800 },
+            { shape: 'lShapeDownLeft', x: 410, y: 775 },
+            { shape: 'flatMedium', x: 590, y: 800 },
+            // Lower-mid
+            { shape: 'flatMedium', x: 130, y: 695 },
+            { shape: 'notchedBlock', x: 360, y: 700 },
+            { shape: 'pillar', x: 565, y: 715 },
+            // Mid
+            { shape: 'blockWide', x: 130, y: 595 },
+            { shape: 'flatSmall', x: 320, y: 580 },
+            { shape: 'flatLong', x: 490, y: 600 },
+            // Upper-mid
+            { shape: 'flatTiny', x: 130, y: 490 },
+            { shape: 'blockShort', x: 280, y: 495 },
+            { shape: 'lShapeDownRight', x: 460, y: 490 },
+            // Upper
+            { shape: 'flatMedium', x: 165, y: 385 },
+            { shape: 'flatSmall', x: 380, y: 375 },
+            { shape: 'flatMedium', x: 540, y: 390 },
+            // Top
+            { shape: 'flatSmall', x: 130, y: 270 },
+            { shape: 'tShape', x: 305, y: 260 },
+            { shape: 'flatMedium', x: 490, y: 285 },
+            // Very top
+            { shape: 'flatMedium', x: 255, y: 155 },
+            { shape: 'flatTiny', x: 510, y: 170 }
         ]
     },
     
-    // Layout 4: Mixed chaos
+    // Layout 4
     {
-        name: "chaos",
+        name: "mix4",
         platforms: [
-            { shape: 'lShapeLeft', x: 60, y: 600 },
-            { shape: 'bump', x: 250, y: 610 },
-            { shape: 'stepUp', x: 420, y: 600 },
-            { shape: 'notched', x: 150, y: 520 },
-            { shape: 'block', x: 380, y: 510 },
-            { shape: 'basicSmall', x: 80, y: 450 },
-            { shape: 'lShapeRight', x: 230, y: 440 },
-            { shape: 'tiny', x: 420, y: 430 },
-            { shape: 'tiny', x: 470, y: 400 },
-            { shape: 'stepDown', x: 100, y: 360 },
-            { shape: 'basicSmall', x: 320, y: 340 },
-            { shape: 'bump', x: 430, y: 330 },
-            { shape: 'basic', x: 200, y: 270 },
-            { shape: 'tiny', x: 380, y: 260 }
+            // Bottom
+            { shape: 'blockShort', x: 100, y: 780 },
+            { shape: 'flatLong', x: 295, y: 800 },
+            { shape: 'lShapeDownRight', x: 540, y: 775 },
+            // Lower-mid
+            { shape: 'flatMedium', x: 130, y: 685 },
+            { shape: 'tShape', x: 320, y: 680 },
+            { shape: 'flatMedium', x: 510, y: 695 },
+            // Mid
+            { shape: 'lShapeDownLeft', x: 130, y: 580 },
+            { shape: 'rock', x: 330, y: 570 },
+            { shape: 'bumpyWide', x: 475, y: 585 },
+            // Upper-mid
+            { shape: 'flatSmall', x: 130, y: 475 },
+            { shape: 'blockTall', x: 305, y: 490 },
+            { shape: 'flatMedium', x: 490, y: 475 },
+            // Upper
+            { shape: 'flatSmall', x: 150, y: 375 },
+            { shape: 'cupShape', x: 360, y: 360 },
+            { shape: 'flatSmall', x: 540, y: 375 },
+            // Top
+            { shape: 'flatMedium', x: 205, y: 270 },
+            { shape: 'flatSmall', x: 435, y: 260 },
+            { shape: 'pillar', x: 590, y: 270 },
+            // Very top
+            { shape: 'flatSmall', x: 130, y: 155 },
+            { shape: 'flatLong', x: 330, y: 170 }
+        ]
+    },
+    
+    // Layout 5
+    {
+        name: "mix5",
+        platforms: [
+            // Bottom
+            { shape: 'flatMedium', x: 130, y: 800 },
+            { shape: 'pillar', x: 320, y: 770 },
+            { shape: 'flatMedium', x: 450, y: 800 },
+            { shape: 'flatSmall', x: 600, y: 785 },
+            // Lower-mid
+            { shape: 'blockWide', x: 130, y: 700 },
+            { shape: 'flatLong', x: 360, y: 695 },
+            { shape: 'flatTiny', x: 590, y: 685 },
+            // Mid
+            { shape: 'flatSmall', x: 130, y: 595 },
+            { shape: 'lShapeDownRight', x: 280, y: 595 },
+            { shape: 'blockShort', x: 540, y: 585 },
+            // Upper-mid
+            { shape: 'flatMedium', x: 130, y: 490 },
+            { shape: 'flatSmall', x: 360, y: 475 },
+            { shape: 'notchedBlock', x: 510, y: 495 },
+            // Upper
+            { shape: 'lShapeDownLeft', x: 150, y: 385 },
+            { shape: 'flatMedium', x: 360, y: 375 },
+            { shape: 'flatSmall', x: 565, y: 390 },
+            // Top
+            { shape: 'flatSmall', x: 130, y: 270 },
+            { shape: 'blockShort', x: 320, y: 265 },
+            { shape: 'flatMedium', x: 510, y: 285 },
+            // Very top
+            { shape: 'flatLong', x: 230, y: 170 },
+            { shape: 'flatTiny', x: 540, y: 155 }
         ]
     }
 ];
-

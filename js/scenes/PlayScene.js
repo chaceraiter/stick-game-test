@@ -13,15 +13,54 @@ class PlayScene extends Phaser.Scene {
     }
 
     preload() {
-        // Load the cropped crumpled notebook paper background
-        this.load.image('notebook-paper', 'assets/notebook-paper-cropped.jpg');
+        // Load the user-cropped notebook paper background (preserves scale)
+        this.load.image('notebook-paper', 'assets/cropped-notebook-page.png');
     }
 
     create() {
         // === NOTEBOOK PAPER BACKGROUND (using cropped image) ===
         // Paper is pre-cropped to edges, just scale to fit canvas
-        const paper = this.add.image(275, 350, 'notebook-paper');
-        paper.setDisplaySize(550, 700);
+        const paper = this.add.image(350, 450, 'notebook-paper');
+        paper.setDisplaySize(700, 900);
+        
+        
+        // === WALLS (hand-drawn style) ===
+        const wallGraphics = this.add.graphics();
+        wallGraphics.lineStyle(2.5, 0x1a1a1a);  // Black pen
+        
+        // Left wall - irregular vertical line
+        wallGraphics.beginPath();
+        wallGraphics.moveTo(55, 0);
+        for (let y = 0; y <= 840; y += 20) {
+            const wobbleX = 55 + (Math.random() - 0.5) * 6 + Math.sin(y * 0.02) * 3;
+            wallGraphics.lineTo(wobbleX, y);
+        }
+        wallGraphics.lineTo(55, 840);
+        wallGraphics.strokePath();
+        
+        // Right wall - irregular vertical line
+        wallGraphics.beginPath();
+        wallGraphics.moveTo(645, 0);
+        for (let y = 0; y <= 840; y += 20) {
+            const wobbleX = 645 + (Math.random() - 0.5) * 6 + Math.sin(y * 0.025 + 1) * 3;
+            wallGraphics.lineTo(wobbleX, y);
+        }
+        wallGraphics.lineTo(645, 840);
+        wallGraphics.strokePath();
+        
+        // Wall collision bodies (invisible rectangles)
+        this.walls = this.physics.add.staticGroup();
+        
+        // Create wall collision textures
+        const wallTexture = this.add.graphics();
+        wallTexture.fillStyle(0x000000, 0);  // Invisible
+        wallTexture.fillRect(0, 0, 50, 840);
+        wallTexture.generateTexture('wall', 50, 840);
+        wallTexture.destroy();
+        
+        // Add collision walls (positioned so player stays in play area)
+        this.walls.create(27, 420, 'wall');   // Left wall
+        this.walls.create(673, 420, 'wall');  // Right wall
         
         
         // === WATER HAZARD (hand-drawn style) ===
@@ -29,16 +68,16 @@ class PlayScene extends Phaser.Scene {
         
         // Light blue fill for water body
         waterGraphics.fillStyle(0x89CFF0, 0.4);  // Light blue, semi-transparent
-        waterGraphics.fillRect(0, 655, 550, 50);
+        waterGraphics.fillRect(0, 845, 700, 60);
         
         // Draw wavy water line (hand-drawn style)
         waterGraphics.lineStyle(2, 0x4A90D9);  // Blue pen color
         waterGraphics.beginPath();
-        waterGraphics.moveTo(0, 655);
+        waterGraphics.moveTo(0, 845);
         
         // Create wavy line across the top of water
-        for (let x = 0; x <= 550; x += 15) {
-            const waveY = 655 + Math.sin(x * 0.05) * 4 + (Math.random() - 0.5) * 2;
+        for (let x = 0; x <= 700; x += 15) {
+            const waveY = 845 + Math.sin(x * 0.05) * 4 + (Math.random() - 0.5) * 2;
             waterGraphics.lineTo(x, waveY);
         }
         waterGraphics.strokePath();
@@ -46,15 +85,15 @@ class PlayScene extends Phaser.Scene {
         // Second wavy line for more doodled feel
         waterGraphics.lineStyle(1.5, 0x4A90D9);
         waterGraphics.beginPath();
-        waterGraphics.moveTo(0, 665);
-        for (let x = 0; x <= 550; x += 12) {
-            const waveY = 665 + Math.sin(x * 0.06 + 1) * 3 + (Math.random() - 0.5) * 2;
+        waterGraphics.moveTo(0, 855);
+        for (let x = 0; x <= 700; x += 12) {
+            const waveY = 855 + Math.sin(x * 0.06 + 1) * 3 + (Math.random() - 0.5) * 2;
             waterGraphics.lineTo(x, waveY);
         }
         waterGraphics.strokePath();
         
         // Invisible zone for water collision detection
-        this.waterZone = this.add.zone(275, 680, 550, 50);
+        this.waterZone = this.add.zone(350, 870, 700, 60);
         this.physics.add.existing(this.waterZone, true);  // true = static body
         
         
@@ -144,6 +183,7 @@ class PlayScene extends Phaser.Scene {
         
         // Make player collide with platforms
         this.physics.add.collider(this.player, this.platforms);
+        this.physics.add.collider(this.player, this.walls);
         
         // Player dies if they touch water!
         this.physics.add.overlap(this.player, this.waterZone, this.playerDied, null, this);
@@ -246,21 +286,21 @@ class PlayScene extends Phaser.Scene {
         });
         this.updateEnemyCount();
         
-        // Level complete text (hidden initially) - centered for 550px canvas
-        this.levelCompleteText = this.add.text(275, 300, '🎉 LEVEL COMPLETE! 🎉', {
-            fontSize: '24px',
+        // Level complete text (hidden initially) - centered for 700px canvas
+        this.levelCompleteText = this.add.text(350, 400, '🎉 LEVEL COMPLETE! 🎉', {
+            fontSize: '28px',
             fill: '#fff',
             backgroundColor: '#228B22',
-            padding: { x: 15, y: 8 }
+            padding: { x: 18, y: 10 }
         });
         this.levelCompleteText.setOrigin(0.5);
         this.levelCompleteText.setVisible(false);
         
-        this.clickToContinueText = this.add.text(275, 350, 'Click to continue', {
-            fontSize: '16px',
+        this.clickToContinueText = this.add.text(350, 460, 'Click to continue', {
+            fontSize: '18px',
             fill: '#000',
             backgroundColor: '#fff',
-            padding: { x: 8, y: 4 }
+            padding: { x: 10, y: 5 }
         });
         this.clickToContinueText.setOrigin(0.5);
         this.clickToContinueText.setVisible(false);
@@ -268,10 +308,11 @@ class PlayScene extends Phaser.Scene {
         // Track current level and game state
         this.currentLevel = 1;
         this.levelInProgress = true;
+        this.isRespawning = false;  // Prevents double-respawn bug
         
-        // Level counter display (positioned for 550px wide canvas)
-        this.levelText = this.add.text(470, 16, 'Level: 1', {
-            fontSize: '14px',
+        // Level counter display
+        this.levelText = this.add.text(610, 16, 'Level: 1', {
+            fontSize: '16px',
             fill: '#000',
             backgroundColor: '#fff',
             padding: { x: 6, y: 3 }
@@ -384,8 +425,9 @@ class PlayScene extends Phaser.Scene {
         this.currentLayoutIndex = (this.currentLayoutIndex + 1) % LEVEL_LAYOUTS.length;
         this.loadLayout(LEVEL_LAYOUTS[this.currentLayoutIndex]);
         
-        // Re-add platform collisions
+        // Re-add platform and wall collisions
         this.physics.add.collider(this.player, this.platforms);
+        this.physics.add.collider(this.player, this.walls);
         this.physics.add.collider(this.enemies, this.platforms);
         
         // Spawn enemies at random positions
@@ -406,23 +448,31 @@ class PlayScene extends Phaser.Scene {
         this.updateEnemyCount();
         this.levelInProgress = true;
         
-        // Reset player position
-        this.player.setPosition(this.playerStartX, this.playerStartY);
-        this.player.setVelocity(0, 0);
+        // Reset player position - use body.reset for proper physics sync
+        this.player.body.reset(this.playerStartX, this.playerStartY);
     }
     
     /**
      * Called when player touches water
      */
     playerDied() {
-        // Reset player to start position
-        this.player.setPosition(this.playerStartX, this.playerStartY);
-        this.player.setVelocity(0, 0);
+        // Prevent multiple triggers while respawning
+        if (this.isRespawning) return;
+        this.isRespawning = true;
+        
+        // Force physics body to fully reset at new position
+        // This syncs sprite + physics body immediately to prevent desync
+        this.player.body.reset(this.playerStartX, this.playerStartY);
         
         // Brief visual feedback - flash the player
         this.player.setTint(0xff0000);
         this.time.delayedCall(200, () => {
             this.player.clearTint();
+        });
+        
+        // Clear respawn flag after player has time to land
+        this.time.delayedCall(500, () => {
+            this.isRespawning = false;
         });
     }
 
@@ -450,7 +500,7 @@ class PlayScene extends Phaser.Scene {
         
         // Clean up bullets that have left the screen
         this.bullets.children.each((bullet) => {
-            if (bullet.active && (bullet.x < -50 || bullet.x > 600 || bullet.y < -50 || bullet.y > 750)) {
+            if (bullet.active && (bullet.x < -50 || bullet.x > 750 || bullet.y < -50 || bullet.y > 950)) {
                 bullet.setActive(false);
                 bullet.setVisible(false);
             }
