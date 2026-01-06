@@ -141,16 +141,22 @@ export class PlayScene extends Phaser.Scene {
         this.input.on('pointerdown', (pointer) => {
             if (this.levelInProgress) {
                 // Shoot toward crosshair position (not mouse)
-                this.shoot(this.crosshair.x, this.crosshair.y);
+                this.tryShoot(this.crosshair.x, this.crosshair.y);
+                this.isPointerDown = true;
             } else {
                 // Level is complete, click to start next level
                 this.startNextLevel();
             }
         });
+        this.input.on('pointerup', () => {
+            this.isPointerDown = false;
+        });
         
         // Spacebar to shoot (keyboard alternative)
         this.shootKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
         this.canShoot = true;  // Prevent holding space for auto-fire
+        this.nextShotTime = 0;
+        this.isPointerDown = false;
         
         // Number keys for weapon switching (1-5)
         this.weaponKeys = {
@@ -166,12 +172,9 @@ export class PlayScene extends Phaser.Scene {
         // === BULLET (hand-drawn dash) ===
         if (!this.textures.exists('bullet')) {
             const bulletGraphics = this.add.graphics();
-            bulletGraphics.lineStyle(2, 0x1a1a1a);  // Black pen stroke
-            bulletGraphics.beginPath();
-            bulletGraphics.moveTo(0, 1.5);
-            bulletGraphics.lineTo(6, 1.5);
-            bulletGraphics.strokePath();
-            bulletGraphics.generateTexture('bullet', 8, 3);
+            bulletGraphics.fillStyle(0x1a1a1a, 1);
+            bulletGraphics.fillRect(0, 0, 2, 2);
+            bulletGraphics.generateTexture('bullet', 2, 2);
             bulletGraphics.destroy();
         }
         
@@ -400,6 +403,7 @@ export class PlayScene extends Phaser.Scene {
             this.levelComplete();
         }
     }
+
     
     /**
      * Update the enemy count display
@@ -503,7 +507,7 @@ export class PlayScene extends Phaser.Scene {
                 this.scene.restart({ layoutIndex: debugAction.layoutIndex });
                 return;
             }
-            // flyToggled and hitboxToggled are handled internally by DebugControls
+            // flyToggled is handled internally by DebugControls
         }
         
         const speed = 120;  // Scaled down for smaller characters
@@ -568,12 +572,25 @@ export class PlayScene extends Phaser.Scene {
         }
         
         // Spacebar shooting
-        if (this.shootKey.isDown && this.canShoot && this.levelInProgress) {
-            this.shoot(this.crosshair.x, this.crosshair.y);
-            this.canShoot = false;
-        }
-        if (this.shootKey.isUp) {
-            this.canShoot = true;
+        if (this.levelInProgress) {
+            const fireMode = this.currentWeapon.fireMode;
+            if (fireMode === 'auto') {
+                if (this.shootKey.isDown) {
+                    this.tryShoot(this.crosshair.x, this.crosshair.y);
+                }
+                if (this.isPointerDown) {
+                    this.tryShoot(this.crosshair.x, this.crosshair.y);
+                }
+            } else {
+                if (this.shootKey.isDown && this.canShoot) {
+                    if (this.tryShoot(this.crosshair.x, this.crosshair.y)) {
+                        this.canShoot = false;
+                    }
+                }
+                if (this.shootKey.isUp) {
+                    this.canShoot = true;
+                }
+            }
         }
         
         // Update crosshair position (orbits player at fixed distance)
@@ -666,6 +683,21 @@ export class PlayScene extends Phaser.Scene {
         }
     }
     
+    tryShoot(targetX, targetY) {
+        const now = this.time.now;
+        const fireRate = this.currentWeapon.fireRate;
+        if (!fireRate || fireRate <= 0) {
+            return false;
+        }
+        const shotDelay = 1000 / fireRate;
+        if (now < this.nextShotTime) {
+            return false;
+        }
+        this.nextShotTime = now + shotDelay;
+        this.shoot(targetX, targetY);
+        return true;
+    }
+    
     /**
      * Shoot a bullet toward a target position
      * @param {number} targetX - X coordinate to shoot toward
@@ -689,6 +721,7 @@ export class PlayScene extends Phaser.Scene {
             bullet.setActive(true);
             bullet.setVisible(true);
             bullet.setScale(this.currentWeapon.projectileSize);
+            bullet.body.setSize(1, 1, true);
             
             const angle = baseAngle + Phaser.Math.FloatBetween(-coneHalfAngle, coneHalfAngle);
             const directionX = Math.cos(angle);

@@ -5,6 +5,7 @@
  * - name: Display name
  * - velocity: Bullet speed (pixels/second)
  * - fireRate: Shots per second (higher = faster)
+ * - fireMode: 'semi' or 'auto'
  * - crosshairDistance: How far crosshair orbits from player
  * - crosshairGap: Gap in center of crosshair (smaller = more precise)
  * - damage: Damage per hit (for future use)
@@ -17,7 +18,8 @@ export const WEAPONS = {
     pistol: {
         name: 'Pistol',
         velocity: 600,
-        fireRate: 3,           // 3 shots/sec
+        fireRate: 20,          // 50ms per shot
+        fireMode: 'semi',
         crosshairDistance: 85,
         crosshairGap: 4,
         damage: 25,
@@ -29,7 +31,8 @@ export const WEAPONS = {
     shotgun: {
         name: 'Shotgun',
         velocity: 500,
-        fireRate: 1,           // 1 shot/sec (slow)
+        fireRate: 3.33,        // 300ms per shot
+        fireMode: 'semi',
         crosshairDistance: 60, // Shorter range
         crosshairGap: 8,       // Less precise
         damage: 15,            // Per pellet
@@ -41,7 +44,8 @@ export const WEAPONS = {
     smg: {
         name: 'SMG',
         velocity: 550,
-        fireRate: 10,          // 10 shots/sec (very fast)
+        fireRate: 14.29,       // 70ms per shot
+        fireMode: 'auto',
         crosshairDistance: 70,
         crosshairGap: 6,       // Medium precision
         damage: 10,
@@ -53,7 +57,8 @@ export const WEAPONS = {
     huntingRifle: {
         name: 'Hunting Rifle',
         velocity: 900,         // Very fast bullets
-        fireRate: 0.8,         // Slow (~1.25 sec between shots)
+        fireRate: 0.83,        // 1200ms per shot
+        fireMode: 'semi',
         crosshairDistance: 120, // Long range
         crosshairGap: 2,       // Very precise
         damage: 100,
@@ -65,7 +70,8 @@ export const WEAPONS = {
     autoRifle: {
         name: 'Auto Rifle',
         velocity: 700,
-        fireRate: 5,           // 5 shots/sec
+        fireRate: 10,          // 100ms per shot
+        fireMode: 'auto',
         crosshairDistance: 90,
         crosshairGap: 4,
         damage: 20,
@@ -92,4 +98,3 @@ export function getWeaponBySlot(slot) {
     }
     return WEAPONS.pistol;  // Default
 }
-

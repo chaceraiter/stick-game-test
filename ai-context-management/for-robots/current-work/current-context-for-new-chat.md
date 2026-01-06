@@ -12,6 +12,8 @@ A stick figure arena shooter built with Phaser 3, styled to look like doodles on
 - **Weapon switching:** 1–5 keys switch weapons
 - **Weapon UI:** text label + image at top of screen (temporary clip art)
 - **Shotgun spread:** multi-pellet with randomized angle derived from crosshair gap + distance
+- **Fire rate limiter:** per-weapon fire cooldown
+- **Fire modes:** semi-auto vs full-auto behavior per weapon
 - **Enemies:** Red stick figures, destroyed when shot
 - **Level progression:** 6 layouts that cycle; complete level by killing all enemies
 - **Platform shape library:** 15 simple shapes + 3 compound shapes = 18 total
@@ -29,9 +31,11 @@ A stick figure arena shooter built with Phaser 3, styled to look like doodles on
 4. ✅ Weapon switching with number keys (1-5)
 5. ✅ Weapon display UI at top of screen
 6. ✅ Unique weapon behaviors (shotgun spread, pellets)
+7. ✅ Fire rate limiting per weapon
+8. ✅ Fire modes (semi/auto) per weapon
 
 **Remaining steps:**
-7. Implement fire rate limiting per weapon
+9. Implement magazine sizes + reloads + reload times
 
 ### Weapons Defined (in WeaponDefinitions.js)
 
@@ -76,6 +80,7 @@ stick-game-test/
 - Character: 9x17 pixels
 - Crosshair: 17x17, orbits at 85px (will vary by weapon)
 - Weapon art: temporary clip-art images in `assets/weapons/`
+- Projectiles: 2x2 visual sprite with 1x1 hitbox
 - Run: `python3 -m http.server 8000`
 
 ## Controls
@@ -99,11 +104,18 @@ stick-game-test/
 7. Created weapon definitions file with 5 weapons
 8. Implemented weapon switching, dynamic crosshair, and shotgun spread
 9. Added weapon UI text + image (temporary clip art)
+10. Added fire rate limiter and fire modes; updated weapon fire timings
+11. Reduced projectile size (2x2 visual, 1x1 hitbox)
+12. Tried bullet-environment collision fixes and debug overlay, rolled back due to slowdown
 
 ## Next Steps
 
-Implement fire rate limiting per weapon.
+Implement magazine sizes + reloads + reload times (and reload input).
 
 ## Wishlist / Planning Notes
 
 - Consider limiting weapon art/style to cowboy-type guns only (revisit weapon art choices).
+- Bullet collision reliability (projectiles should disappear on platform/wall impact without performance cost).
+- Hit spark or impact indicator (visual feedback on hits).
+- Optional projectile debug overlay (toggleable), implemented without noticeable slowdown.
+- Investigate sporadic false bullet velocity vectors when many projectiles are on screen (temporary deflection artifacts).

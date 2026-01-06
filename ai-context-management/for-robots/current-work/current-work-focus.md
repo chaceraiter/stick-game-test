@@ -1,12 +1,12 @@
 # Current Work Focus
 
-Building weapon system with multiple weapon types. Keyboard aiming complete. Weapon definitions created. Weapon switching, crosshair tuning, and shotgun spread implemented.
+Building weapon system with multiple weapon types. Keyboard aiming complete. Weapon definitions created. Weapon switching, crosshair tuning, shotgun spread, fire rate limiter, and fire modes implemented.
 
 - **Project Goal:** Build a browser-based stick figure arena shooter with depth in combat, enemies, and procedural levels
 
 - **Intermediate Goal:** Implement multi-weapon system with different behaviors
 
-- **Current Task:** Continue weapon system - Step 3: Implement fire rate limiting per weapon
+- **Current Task:** Continue weapon system - Step 4: Add magazines + reloads
 
 ## Weapon System Progress
 
@@ -14,11 +14,13 @@ Building weapon system with multiple weapon types. Keyboard aiming complete. Wea
 |------|------|--------|
 | 1 | Create weapon definitions | ✅ Done |
 | 2 | Fix diagonal velocity | ✅ Done |
-| 3 | Fire rate limiting | ⏳ Next |
+| 3 | Fire rate limiting | ✅ Done |
 | 4 | Dynamic crosshair per weapon | ✅ Done |
 | 5 | Weapon switching (1-5 keys) | ✅ Done |
 | 6 | Weapon display UI | ✅ Done |
 | 7 | Unique behaviors (shotgun spread) | ✅ Done |
+| 8 | Fire modes (semi/auto) | ✅ Done |
+| 9 | Magazines + reloads | ⏳ Next |
 
 ## Recently Completed
 
