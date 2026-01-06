@@ -11,6 +11,7 @@ A stick figure arena shooter built with Phaser 3, styled to look like doodles on
 - **Movement tuning:** lower jump height; slower movement when crouched/prone; 0.5× speed when moving backward vs facing
 - **Aiming:** Crosshair orbits player at fixed distance, J/K to rotate aim
 - **Facing + quick turn:** character faces left/right based on aim side; L mirrors aim for quick 180 turns (stand/crouch only); debug facing vector shown
+- **Jump pack (test):** I = upward kick, O = short upward thrust; orange jet flame visual
 - **Shooting:** Spacebar or click fires toward crosshair
 - **Projectile collisions:** Bullets disappear when they hit platforms/walls (in addition to enemies)
 - **Weapon switching:** 1–5 keys switch weapons
@@ -136,6 +137,8 @@ Shift focus to player movement improvements (jump height, step-up small ledges),
   - Consider stance-based aim constraints (e.g. prone aim limits).
   - Consider aim acceleration/response (instead of constant turn rate).
   - Tweak crouch height/hitbox sizing and feel.
+  - Add ground/air acceleration + deceleration + friction (instead of instant velocity).
+  - Add “can stand here?” ceiling check before standing up from crouch/prone.
 - Bullet collision reliability ideas (if tunneling/artifacts show up with fast bullets):
   - Lower projectile velocities (and/or cap max projectile speed per weapon).
   - Slightly larger projectile physics body (sprite can stay small).

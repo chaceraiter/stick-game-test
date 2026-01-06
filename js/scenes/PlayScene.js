@@ -229,6 +229,19 @@ export class PlayScene extends Phaser.Scene {
         this.gun = this.add.image(0, 0, 'gun');
         this.gun.setOrigin(0, 0.5); // Left end anchors at chest
         this.gun.setDepth(11);
+
+        // === JET FLAME (jump pack visual) ===
+        if (!this.textures.exists('jet-flame')) {
+            const flameGraphics = this.add.graphics();
+            flameGraphics.fillStyle(0xff7a00, 1);
+            flameGraphics.fillTriangle(0, 0, 0, 6, 8, 3);
+            flameGraphics.generateTexture('jet-flame', 8, 6);
+            flameGraphics.destroy();
+        }
+        this.jetFlame = this.add.image(-1000, -1000, 'jet-flame');
+        this.jetFlame.setOrigin(0.5);
+        this.jetFlame.setDepth(9);
+        this.jetFlame.setVisible(false);
         
         // Aim state - angle in radians (0 = right, increases counterclockwise)
         this.aimAngle = 0;
@@ -261,6 +274,14 @@ export class PlayScene extends Phaser.Scene {
         };
         this.aimRotationSpeed = 1.5;  // Radians per second
         this.quickTurnKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.L);
+
+        // Jump pack testing (spammable)
+        this.jumpPackKeys = {
+            impulse: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.I),
+            thrust: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.O)
+        };
+        this.jumpPackThrustActiveUntil = 0;
+        this.jumpPackImpulseFlameUntil = 0;
         
         // Mouse click to shoot (or continue after level complete)
         this.input.on('pointerdown', (pointer) => {
@@ -364,7 +385,7 @@ export class PlayScene extends Phaser.Scene {
         
         // === UI TEXT ===
         // Show some instructions (smaller for notebook canvas)
-        this.add.text(60, 16, 'WASD: move | W/S: stance (W jumps if standing) | J/K: aim | Space/Click: shoot | E: reload | R/G/F/H: debug', {
+        this.add.text(60, 16, 'WASD: move | W/S: stance (W jumps if standing) | J/K: aim | L: quick turn | I/O: jump pack | Space/Click: shoot | E: reload | R/G/F/H: debug', {
             fontSize: '9px',
             fill: '#333',
             backgroundColor: 'rgba(255,255,255,0.8)',
@@ -715,6 +736,24 @@ export class PlayScene extends Phaser.Scene {
                 this.player.setVelocityY(jumpVelocity);
             }
         }
+
+        // Jump pack testing:
+        // - I: short high-power upward kick (instant velocity set)
+        // - O: upward thrust for a short duration (adds upward acceleration over time)
+        if (Phaser.Input.Keyboard.JustDown(this.jumpPackKeys.impulse)) {
+            this.activateJumpPackImpulse();
+        }
+        if (Phaser.Input.Keyboard.JustDown(this.jumpPackKeys.thrust)) {
+            this.activateJumpPackThrust(250);
+        }
+
+        const now = this.time.now;
+        if (now < this.jumpPackThrustActiveUntil) {
+            const dt = this.game.loop.delta / 1000;
+            const thrustAccel = 1800; // px/s^2 upward
+            this.player.body.velocity.y -= thrustAccel * dt;
+            this.player.body.velocity.y = Math.max(this.player.body.velocity.y, -450);
+        }
         
         // Rotate aim with J/K keys
         const deltaTime = this.game.loop.delta / 1000;  // Convert ms to seconds
@@ -772,6 +811,7 @@ export class PlayScene extends Phaser.Scene {
         this.crosshair.y = this.player.y + Math.sin(this.aimAngle) * this.aimDistance;
         this.updateGunTransform();
         this.drawFacingDebug();
+        this.updateJetFlame();
         
         // Clean up bullets that have left the screen
         this.bullets.children.each((bullet) => {
@@ -989,6 +1029,34 @@ export class PlayScene extends Phaser.Scene {
 
         this.facingDebugGraphics.fillStyle(0xff00ff, 0.9);
         this.facingDebugGraphics.fillCircle(endX, endY, 1.3);
+    }
+
+    activateJumpPackImpulse() {
+        const kickVelocity = -320;
+        this.player.setVelocityY(kickVelocity);
+        this.jumpPackImpulseFlameUntil = this.time.now + 140;
+    }
+
+    activateJumpPackThrust(durationMs) {
+        this.jumpPackThrustActiveUntil = this.time.now + durationMs;
+    }
+
+    updateJetFlame() {
+        if (!this.jetFlame || !this.player || !this.player.body) return;
+
+        const now = this.time.now;
+        const active = now < this.jumpPackThrustActiveUntil || now < this.jumpPackImpulseFlameUntil;
+        if (!active) {
+            this.jetFlame.setVisible(false);
+            return;
+        }
+
+        const backInset = 2;
+        const flameX = this.facing === 1 ? this.player.body.left - backInset : this.player.body.right + backInset;
+        const flameY = this.player.body.center.y;
+        this.jetFlame.setPosition(flameX, flameY);
+        this.jetFlame.setRotation(this.facing === 1 ? Math.PI : 0);
+        this.jetFlame.setVisible(true);
     }
 
     getStanceSpeedMultiplier() {
