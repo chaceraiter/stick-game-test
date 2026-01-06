@@ -9,6 +9,9 @@ A stick figure arena shooter built with Phaser 3, styled to look like doodles on
 - **Player movement:** WASD or arrow keys to move, W/Up to jump
 - **Aiming:** Crosshair orbits player at fixed distance, J/K to rotate aim
 - **Shooting:** Spacebar or click fires toward crosshair
+- **Weapon switching:** 1–5 keys switch weapons
+- **Weapon UI:** text label + image at top of screen (temporary clip art)
+- **Shotgun spread:** multi-pellet with randomized angle derived from crosshair gap + distance
 - **Enemies:** Red stick figures, destroyed when shot
 - **Level progression:** 6 layouts that cycle; complete level by killing all enemies
 - **Platform shape library:** 15 simple shapes + 3 compound shapes = 18 total
@@ -21,14 +24,14 @@ A stick figure arena shooter built with Phaser 3, styled to look like doodles on
 
 **Completed steps:**
 1. ✅ Created `js/weapons/WeaponDefinitions.js` with 5 weapons defined
+2. ✅ Fix diagonal velocity normalization
+3. ✅ Dynamic crosshair (distance/gap changes per weapon)
+4. ✅ Weapon switching with number keys (1-5)
+5. ✅ Weapon display UI at top of screen
+6. ✅ Unique weapon behaviors (shotgun spread, pellets)
 
 **Remaining steps:**
-2. ⏳ Fix diagonal velocity normalization
-3. Implement fire rate limiting per weapon
-4. Dynamic crosshair (distance/gap changes per weapon)
-5. Weapon switching with number keys (1-5)
-6. Weapon display UI at top of screen
-7. Unique weapon behaviors (shotgun spread, etc.)
+7. Implement fire rate limiting per weapon
 
 ### Weapons Defined (in WeaponDefinitions.js)
 
@@ -72,6 +75,7 @@ stick-game-test/
 - Canvas: 700x900
 - Character: 9x17 pixels
 - Crosshair: 17x17, orbits at 85px (will vary by weapon)
+- Weapon art: temporary clip-art images in `assets/weapons/`
 - Run: `python3 -m http.server 8000`
 
 ## Controls
@@ -93,8 +97,13 @@ stick-game-test/
 5. Added crosshair-based aiming system (J/K to rotate)
 6. Added spacebar shooting
 7. Created weapon definitions file with 5 weapons
-8. Started weapon system implementation (step 2 of 7 next)
+8. Implemented weapon switching, dynamic crosshair, and shotgun spread
+9. Added weapon UI text + image (temporary clip art)
 
 ## Next Steps
 
-Continue weapon system implementation starting with Step 2: diagonal velocity fix.
+Implement fire rate limiting per weapon.
+
+## Wishlist / Planning Notes
+
+- Consider limiting weapon art/style to cowboy-type guns only (revisit weapon art choices).

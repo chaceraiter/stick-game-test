@@ -21,6 +21,11 @@ export class PlayScene extends Phaser.Scene {
     preload() {
         // Load the user-cropped notebook paper background (preserves scale)
         this.load.image('notebook-paper', 'assets/cropped-notebook-page.png');
+        this.load.image('weapon-pistol', 'assets/weapons/pistol.png');
+        this.load.image('weapon-shotgun', 'assets/weapons/shotgun.png');
+        this.load.image('weapon-smg', 'assets/weapons/smg.png');
+        this.load.image('weapon-hunting-rifle', 'assets/weapons/hunting-rifle.png');
+        this.load.image('weapon-auto-rifle', 'assets/weapons/auto-rifle.png');
     }
 
     create() {
@@ -252,6 +257,10 @@ export class PlayScene extends Phaser.Scene {
             backgroundColor: 'rgba(255,255,255,0.8)',
             padding: { x: 4, y: 2 }
         });
+        
+        this.weaponImage = this.add.image(610, 50, this.getWeaponImageKey(this.currentWeaponSlot));
+        this.weaponImage.setOrigin(0.5);
+        this.weaponImage.setScale(0.6);
         
         // Level complete text (hidden initially) - centered for 700px canvas
         this.levelCompleteText = this.add.text(350, 400, '🎉 LEVEL COMPLETE! 🎉', {
@@ -584,6 +593,23 @@ export class PlayScene extends Phaser.Scene {
         return `crosshair-gap-${gap}`;
     }
     
+    getWeaponImageKey(slot) {
+        switch (slot) {
+            case 1:
+                return 'weapon-pistol';
+            case 2:
+                return 'weapon-shotgun';
+            case 3:
+                return 'weapon-smg';
+            case 4:
+                return 'weapon-hunting-rifle';
+            case 5:
+                return 'weapon-auto-rifle';
+            default:
+                return 'weapon-pistol';
+        }
+    }
+    
     ensureCrosshairTexture(key, gap) {
         if (this.textures.exists(key)) return;
         
@@ -635,6 +661,9 @@ export class PlayScene extends Phaser.Scene {
         if (this.weaponText) {
             this.weaponText.setText(`Weapon: ${this.currentWeapon.name}`);
         }
+        if (this.weaponImage) {
+            this.weaponImage.setTexture(this.getWeaponImageKey(slot));
+        }
     }
     
     /**
@@ -650,9 +679,8 @@ export class PlayScene extends Phaser.Scene {
         );
         
         const pelletCount = this.currentWeapon.pellets;
-        const spread = this.currentWeapon.spread;
-        const pelletSpreadStart = -spread / 2;
-        const pelletSpreadStep = pelletCount > 1 ? (spread / (pelletCount - 1)) : 0;
+        const gapRadius = this.currentWeapon.crosshairGap / 2;
+        const coneHalfAngle = Math.atan(gapRadius / this.aimDistance);
         
         for (let i = 0; i < pelletCount; i++) {
             const bullet = this.bullets.get(this.player.x, this.player.y);
@@ -662,7 +690,7 @@ export class PlayScene extends Phaser.Scene {
             bullet.setVisible(true);
             bullet.setScale(this.currentWeapon.projectileSize);
             
-            const angle = baseAngle + (pelletSpreadStart + pelletSpreadStep * i);
+            const angle = baseAngle + Phaser.Math.FloatBetween(-coneHalfAngle, coneHalfAngle);
             const directionX = Math.cos(angle);
             const directionY = Math.sin(angle);
             
