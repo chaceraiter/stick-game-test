@@ -275,6 +275,15 @@ export class PlayScene extends Phaser.Scene {
         this.aimRotationSpeed = 1.5;  // Radians per second
         this.quickTurnKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.L);
 
+        // Grapple (N)
+        this.grappleKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.N);
+        this.nextGrappleTime = 0;
+        this.grappleActive = false;
+        this.grappleAnchor = null;
+        this.grappleRopeLength = 0;
+        this.grappleGraphics = this.add.graphics();
+        this.grappleGraphics.setDepth(15);
+
         // Jump pack testing (spammable)
         this.jumpPackKeys = {
             impulse: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.I),
@@ -385,7 +394,7 @@ export class PlayScene extends Phaser.Scene {
         
         // === UI TEXT ===
         // Show some instructions (smaller for notebook canvas)
-        this.add.text(60, 16, 'WASD: move | W/S: stance (W jumps if standing) | J/K: aim | L: quick turn | I/O: jump pack | Space/Click: shoot | E: reload | R/G/F/H: debug', {
+        this.add.text(60, 16, 'WASD: move | W/S: stance (W jumps if standing) | J/K: aim | L: quick turn | I/O: jump pack | N: grapple | Space/Click: shoot | E: reload | R/G/F/H: debug', {
             fontSize: '9px',
             fill: '#333',
             backgroundColor: 'rgba(255,255,255,0.8)',
@@ -599,6 +608,8 @@ export class PlayScene extends Phaser.Scene {
         this.bullets.children.each((bullet) => {
             bullet.disableBody(true, true);
         });
+
+        this.releaseGrapple();
         
         // Cycle to next layout (or random)
         this.currentLayoutIndex = (this.currentLayoutIndex + 1) % LEVEL_LAYOUTS.length;
@@ -641,6 +652,8 @@ export class PlayScene extends Phaser.Scene {
         // Prevent multiple triggers while respawning
         if (this.isRespawning) return;
         this.isRespawning = true;
+
+        this.releaseGrapple();
         
         // Force physics body to fully reset at new position
         // This syncs sprite + physics body immediately to prevent desync
@@ -691,6 +704,15 @@ export class PlayScene extends Phaser.Scene {
         const downJustDown =
             Phaser.Input.Keyboard.JustDown(this.wasd.down) ||
             Phaser.Input.Keyboard.JustDown(this.cursors.down);
+
+        // Grapple toggle (N)
+        if (Phaser.Input.Keyboard.JustDown(this.grappleKey)) {
+            if (this.grappleActive) {
+                this.releaseGrapple();
+            } else {
+                this.tryDeployGrapple();
+            }
+        }
         
         if (flyMode) {
             const inputX = (rightDown ? 1 : 0) - (leftDown ? 1 : 0);
@@ -705,11 +727,14 @@ export class PlayScene extends Phaser.Scene {
                 this.player.setVelocity(0, 0);
             }
         } else {
-            // Stance changes (W=up stance, S=down stance), with cooldown between changes
-            if (upJustDown && this.currentStance !== 'stand') {
-                this.tryChangeStance('up');
-            } else if (downJustDown && this.currentStance !== 'prone') {
-                this.tryChangeStance('down');
+            // Reeling uses W/S while grapple is active (so skip stance changes in that state)
+            if (!this.grappleActive) {
+                // Stance changes (W=up stance, S=down stance), with cooldown between changes
+                if (upJustDown && this.currentStance !== 'stand') {
+                    this.tryChangeStance('up');
+                } else if (downJustDown && this.currentStance !== 'prone') {
+                    this.tryChangeStance('down');
+                }
             }
 
             // Quick 180 turn without rotating all the way around (crouch/stand only)
@@ -732,7 +757,7 @@ export class PlayScene extends Phaser.Scene {
             }
             
             // Normal mode: W/Up jumps only if already standing
-            if (this.currentStance === 'stand' && upJustDown && this.player.body.blocked.down) {
+            if (!this.grappleActive && this.currentStance === 'stand' && upJustDown && this.player.body.blocked.down) {
                 this.player.setVelocityY(jumpVelocity);
             }
         }
@@ -753,6 +778,21 @@ export class PlayScene extends Phaser.Scene {
             const thrustAccel = 1800; // px/s^2 upward
             this.player.body.velocity.y -= thrustAccel * dt;
             this.player.body.velocity.y = Math.max(this.player.body.velocity.y, -450);
+        }
+
+        // Grapple reeling (W in, S out)
+        if (this.grappleActive) {
+            const dt = this.game.loop.delta / 1000;
+            const reelSpeed = 120; // px/s
+            if (upDown) {
+                this.grappleRopeLength -= reelSpeed * dt;
+            }
+            if (downDown) {
+                this.grappleRopeLength += reelSpeed * dt;
+            }
+            const minLen = 10;
+            const maxLen = this.getMaxGrappleRange();
+            this.grappleRopeLength = Phaser.Math.Clamp(this.grappleRopeLength, minLen, maxLen);
         }
         
         // Rotate aim with J/K keys
@@ -806,12 +846,16 @@ export class PlayScene extends Phaser.Scene {
             }
         }
         
+        // Grapple constraint can move the player; apply it before dependent visuals (crosshair/gun/rope)
+        this.applyGrappleConstraint();
+
         // Update crosshair position (orbits player at fixed distance)
         this.crosshair.x = this.player.x + Math.cos(this.aimAngle) * this.aimDistance;
         this.crosshair.y = this.player.y + Math.sin(this.aimAngle) * this.aimDistance;
         this.updateGunTransform();
         this.drawFacingDebug();
         this.updateJetFlame();
+        this.drawGrapple();
         
         // Clean up bullets that have left the screen
         this.bullets.children.each((bullet) => {
@@ -1057,6 +1101,144 @@ export class PlayScene extends Phaser.Scene {
         this.jetFlame.setPosition(flameX, flameY);
         this.jetFlame.setRotation(this.facing === 1 ? Math.PI : 0);
         this.jetFlame.setVisible(true);
+    }
+
+    getMaxGrappleRange() {
+        // Player is 17px tall; 5–7x that is ~85–120px
+        return 17 * 6;
+    }
+
+    getGrappleMountWorldPosition() {
+        if (!this.player || !this.player.body) return { x: this.player.x, y: this.player.y };
+        const x = this.player.body.center.x;
+        const y = this.player.body.top + (this.player.body.height * 0.35);
+        return { x, y };
+    }
+
+    tryDeployGrapple() {
+        const now = this.time.now;
+        if (now < this.nextGrappleTime) return false;
+        this.nextGrappleTime = now + 2000;
+
+        const start = this.getGrappleMountWorldPosition();
+        const maxRange = this.getMaxGrappleRange();
+        const end = {
+            x: start.x + Math.cos(this.aimAngle) * maxRange,
+            y: start.y + Math.sin(this.aimAngle) * maxRange
+        };
+
+        const hit = this.findGrappleHit(start, end);
+        if (!hit) return false;
+
+        this.grappleActive = true;
+        this.grappleAnchor = { x: hit.x, y: hit.y };
+        this.grappleRopeLength = Phaser.Math.Distance.Between(start.x, start.y, hit.x, hit.y);
+        return true;
+    }
+
+    releaseGrapple() {
+        this.grappleActive = false;
+        this.grappleAnchor = null;
+        this.grappleRopeLength = 0;
+        if (this.grappleGraphics) this.grappleGraphics.clear();
+    }
+
+    applyGrappleConstraint() {
+        if (!this.grappleActive || !this.grappleAnchor || !this.player || !this.player.body) return;
+        const mount = this.getGrappleMountWorldPosition();
+        const dx = mount.x - this.grappleAnchor.x;
+        const dy = mount.y - this.grappleAnchor.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist <= 0.0001) return;
+
+        if (dist <= this.grappleRopeLength) return;
+
+        const nx = dx / dist;
+        const ny = dy / dist;
+
+        const desiredMountX = this.grappleAnchor.x + nx * this.grappleRopeLength;
+        const desiredMountY = this.grappleAnchor.y + ny * this.grappleRopeLength;
+        const offsetX = desiredMountX - mount.x;
+        const offsetY = desiredMountY - mount.y;
+
+        this.player.body.reset(this.player.x + offsetX, this.player.y + offsetY);
+
+        const vel = this.player.body.velocity;
+        const radialVel = vel.x * nx + vel.y * ny;
+        if (radialVel > 0) {
+            vel.x -= radialVel * nx;
+            vel.y -= radialVel * ny;
+        }
+    }
+
+    drawGrapple() {
+        if (!this.grappleGraphics) return;
+        this.grappleGraphics.clear();
+        if (!this.grappleActive || !this.grappleAnchor) return;
+
+        const mount = this.getGrappleMountWorldPosition();
+        this.grappleGraphics.lineStyle(1.5, 0x333333, 0.9);
+        this.grappleGraphics.beginPath();
+        this.grappleGraphics.moveTo(mount.x, mount.y);
+        this.grappleGraphics.lineTo(this.grappleAnchor.x, this.grappleAnchor.y);
+        this.grappleGraphics.strokePath();
+
+        this.grappleGraphics.fillStyle(0x333333, 0.9);
+        this.grappleGraphics.fillCircle(this.grappleAnchor.x, this.grappleAnchor.y, 2);
+    }
+
+    findGrappleHit(start, end) {
+        const candidates = [];
+
+        for (const obj of this.platforms.getChildren()) {
+            if (obj.body) candidates.push(obj.body);
+        }
+        for (const obj of this.walls.getChildren()) {
+            if (obj.body) candidates.push(obj.body);
+        }
+
+        let best = null;
+        for (const body of candidates) {
+            const rect = new Phaser.Geom.Rectangle(body.x, body.y, body.width, body.height);
+            const hit = this.segmentRectIntersection(start.x, start.y, end.x, end.y, rect);
+            if (!hit) continue;
+            if (!best || hit.t < best.t) best = hit;
+        }
+
+        return best ? { x: best.x, y: best.y } : null;
+    }
+
+    segmentRectIntersection(x1, y1, x2, y2, rect) {
+        const edges = [
+            [rect.left, rect.top, rect.right, rect.top],
+            [rect.right, rect.top, rect.right, rect.bottom],
+            [rect.right, rect.bottom, rect.left, rect.bottom],
+            [rect.left, rect.bottom, rect.left, rect.top]
+        ];
+
+        let best = null;
+        for (const [x3, y3, x4, y4] of edges) {
+            const hit = this.segmentIntersection(x1, y1, x2, y2, x3, y3, x4, y4);
+            if (!hit) continue;
+            if (!best || hit.t < best.t) best = hit;
+        }
+        return best;
+    }
+
+    segmentIntersection(x1, y1, x2, y2, x3, y3, x4, y4) {
+        const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+        if (Math.abs(denom) < 1e-9) return null;
+
+        const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+        const u = ((x1 - x3) * (y1 - y2) - (y1 - y3) * (x1 - x2)) / denom;
+
+        if (t < 0 || t > 1 || u < 0 || u > 1) return null;
+
+        return {
+            x: x1 + t * (x2 - x1),
+            y: y1 + t * (y2 - y1),
+            t
+        };
     }
 
     getStanceSpeedMultiplier() {

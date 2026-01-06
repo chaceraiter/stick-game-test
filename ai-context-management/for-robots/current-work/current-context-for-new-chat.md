@@ -12,6 +12,7 @@ A stick figure arena shooter built with Phaser 3, styled to look like doodles on
 - **Aiming:** Crosshair orbits player at fixed distance, J/K to rotate aim
 - **Facing + quick turn:** character faces left/right based on aim side; L mirrors aim for quick 180 turns (stand/crouch only); debug facing vector shown
 - **Jump pack (test):** I = upward kick, O = short upward thrust; orange jet flame visual
+- **Grapple (test):** N deploys/release; 2000ms cooldown; attaches only if ray hits platform/wall; W reels in, S reels out; rope is drawn and acts like a simple swing constraint
 - **Shooting:** Spacebar or click fires toward crosshair
 - **Projectile collisions:** Bullets disappear when they hit platforms/walls (in addition to enemies)
 - **Weapon switching:** 1–5 keys switch weapons
@@ -97,6 +98,7 @@ stick-game-test/
 | Jump | W or Up (standing only) |
 | Stance up/down | W/S or Up/Down |
 | Quick turn | L |
+| Grapple | N (toggle), W/S reel |
 | Aim | J (CCW), K (CW) |
 | Shoot | Space or Click |
 | Reload | E |
