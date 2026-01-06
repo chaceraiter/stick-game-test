@@ -6,7 +6,7 @@ Building weapon system with multiple weapon types. Keyboard aiming complete. Wea
 
 - **Intermediate Goal:** Implement multi-weapon system with different behaviors
 
-- **Current Task:** Continue weapon system - Step 4: Add magazines + reloads
+- **Current Task:** Weapon system - test/tune magazines + reloads
 
 ## Weapon System Progress
 
@@ -20,7 +20,7 @@ Building weapon system with multiple weapon types. Keyboard aiming complete. Wea
 | 6 | Weapon display UI | ✅ Done |
 | 7 | Unique behaviors (shotgun spread) | ✅ Done |
 | 8 | Fire modes (semi/auto) | ✅ Done |
-| 9 | Magazines + reloads | ⏳ Next |
+| 9 | Magazines + reloads | ✅ Done |
 
 ## Recently Completed
 
@@ -32,6 +32,8 @@ Building weapon system with multiple weapon types. Keyboard aiming complete. Wea
 - ✅ Weapon switching + dynamic crosshair
 - ✅ Shotgun spread + pellet support
 - ✅ Weapon image UI (temporary clip art)
+- ✅ Bullet/projectile collision with platforms + walls (bullets disappear on impact)
+- ✅ Magazines + reloads (per-weapon mag size + reload time)
 
 ## Feature Roadmap (See project-vision-and-goals.md)
 

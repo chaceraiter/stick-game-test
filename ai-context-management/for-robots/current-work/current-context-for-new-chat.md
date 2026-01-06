@@ -9,8 +9,10 @@ A stick figure arena shooter built with Phaser 3, styled to look like doodles on
 - **Player movement:** WASD or arrow keys to move, W/Up to jump
 - **Aiming:** Crosshair orbits player at fixed distance, J/K to rotate aim
 - **Shooting:** Spacebar or click fires toward crosshair
+- **Projectile collisions:** Bullets disappear when they hit platforms/walls (in addition to enemies)
 - **Weapon switching:** 1–5 keys switch weapons
 - **Weapon UI:** text label + image at top of screen (temporary clip art)
+- **Ammo + reloads:** per-weapon magazine sizes + reload timers; E triggers reload; auto-reload on empty
 - **Shotgun spread:** multi-pellet with randomized angle derived from crosshair gap + distance
 - **Fire rate limiter:** per-weapon fire cooldown
 - **Fire modes:** semi-auto vs full-auto behavior per weapon
@@ -35,7 +37,7 @@ A stick figure arena shooter built with Phaser 3, styled to look like doodles on
 8. ✅ Fire modes (semi/auto) per weapon
 
 **Remaining steps:**
-9. Implement magazine sizes + reloads + reload times
+9. ✅ Implemented magazine sizes + reloads + reload times
 
 ### Weapons Defined (in WeaponDefinitions.js)
 
@@ -91,6 +93,7 @@ stick-game-test/
 | Jump | W or Up |
 | Aim | J (CCW), K (CW) |
 | Shoot | Space or Click |
+| Reload | E |
 | Debug | R/G/F/H |
 
 ## This Session Summary
@@ -106,16 +109,22 @@ stick-game-test/
 9. Added weapon UI text + image (temporary clip art)
 10. Added fire rate limiter and fire modes; updated weapon fire timings
 11. Reduced projectile size (2x2 visual, 1x1 hitbox)
-12. Tried bullet-environment collision fixes and debug overlay, rolled back due to slowdown
+12. Implemented bullet collision with platforms/walls (disable bullets on impact using pooled-bullet `enableBody/disableBody` pattern)
+13. Implemented per-weapon magazines + reload timers + ammo UI (`E` reload, auto-reload on empty)
 
 ## Next Steps
 
-Implement magazine sizes + reloads + reload times (and reload input).
+Test/tune magazines + reloads UX, then move on to the next weapon-system milestone (damage/health, projectile feel, or procedural generator).
 
 ## Wishlist / Planning Notes
 
 - Consider limiting weapon art/style to cowboy-type guns only (revisit weapon art choices).
-- Bullet collision reliability (projectiles should disappear on platform/wall impact without performance cost).
+- Bullet collision reliability ideas (if tunneling/artifacts show up with fast bullets):
+  - Lower projectile velocities (and/or cap max projectile speed per weapon).
+  - Slightly larger projectile physics body (sprite can stay small).
+  - “Long rectangle” projectile body aligned to travel direction (helps, but still per-frame AABB checks).
+  - Swept collision (treat motion as a segment from prev→next position; manual segment-vs-rect checks).
+  - Instant hit-scan for straight-line weapons: on shot, raycast/segment-test against platforms/walls/enemies and place the bullet at the first hit (no per-frame collision checks); still spawn a visual tracer if desired.
 - Hit spark or impact indicator (visual feedback on hits).
 - Optional projectile debug overlay (toggleable), implemented without noticeable slowdown.
 - Investigate sporadic false bullet velocity vectors when many projectiles are on screen (temporary deflection artifacts).

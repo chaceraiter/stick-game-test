@@ -154,10 +154,11 @@ export class PlayScene extends Phaser.Scene {
         
         // Spacebar to shoot (keyboard alternative)
         this.shootKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        this.reloadKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
         this.canShoot = true;  // Prevent holding space for auto-fire
         this.nextShotTime = 0;
         this.isPointerDown = false;
-        
+
         // Number keys for weapon switching (1-5)
         this.weaponKeys = {
             one: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE),
@@ -183,6 +184,10 @@ export class PlayScene extends Phaser.Scene {
             defaultKey: 'bullet',
             maxSize: 20  // Limit bullets on screen
         });
+
+        // Bullets should disappear when they hit platforms or walls
+        this.physics.add.overlap(this.bullets, this.platforms, this.bulletHitEnvironment, null, this);
+        this.physics.add.overlap(this.bullets, this.walls, this.bulletHitEnvironment, null, this);
         
         
         // === ENEMIES ===
@@ -234,7 +239,7 @@ export class PlayScene extends Phaser.Scene {
         
         // === UI TEXT ===
         // Show some instructions (smaller for notebook canvas)
-        this.add.text(60, 16, 'WASD: move | J/K: aim | Space/Click: shoot | R/G/F/H: debug', {
+        this.add.text(60, 16, 'WASD: move | J/K: aim | Space/Click: shoot | E: reload | R/G/F/H: debug', {
             fontSize: '9px',
             fill: '#333',
             backgroundColor: 'rgba(255,255,255,0.8)',
@@ -255,6 +260,13 @@ export class PlayScene extends Phaser.Scene {
         
         // Weapon display (small, tucked under enemy count)
         this.weaponText = this.add.text(60, 48, `Weapon: ${this.currentWeapon.name}`, {
+            fontSize: '11px',
+            fill: '#333',
+            backgroundColor: 'rgba(255,255,255,0.8)',
+            padding: { x: 4, y: 2 }
+        });
+
+        this.ammoText = this.add.text(60, 64, '', {
             fontSize: '11px',
             fill: '#333',
             backgroundColor: 'rgba(255,255,255,0.8)',
@@ -298,7 +310,7 @@ export class PlayScene extends Phaser.Scene {
         });
         
         // Layout number display (for debugging)
-        this.layoutText = this.add.text(60, 64, `Layout: ${this.currentLayoutIndex + 1}/${LEVEL_LAYOUTS.length}`, {
+        this.layoutText = this.add.text(60, 80, `Layout: ${this.currentLayoutIndex + 1}/${LEVEL_LAYOUTS.length}`, {
             fontSize: '11px',
             fill: '#666',
             backgroundColor: 'rgba(255,255,255,0.8)',
@@ -311,6 +323,11 @@ export class PlayScene extends Phaser.Scene {
         // Player start position (will be set by layout)
         this.playerStartX = 100;
         this.playerStartY = 600;
+
+        // Ammo state per weapon slot (infinite reserve ammo for now)
+        this.weaponAmmo = {};
+        this.ensureWeaponAmmoState(this.currentWeaponSlot);
+        this.updateAmmoText();
     }
     
     /**
@@ -388,9 +405,8 @@ export class PlayScene extends Phaser.Scene {
      * Called when a bullet hits an enemy
      */
     bulletHitEnemy(bullet, enemy) {
-        // Deactivate the bullet
-        bullet.setActive(false);
-        bullet.setVisible(false);
+        // Disable the bullet so it can't hit multiple things (robust pooled-bullet pattern)
+        bullet.disableBody(true, true);
         
         // Destroy the enemy
         enemy.destroy();
@@ -435,8 +451,7 @@ export class PlayScene extends Phaser.Scene {
         
         // Clear any remaining bullets
         this.bullets.children.each((bullet) => {
-            bullet.setActive(false);
-            bullet.setVisible(false);
+            bullet.disableBody(true, true);
         });
         
         // Cycle to next layout (or random)
@@ -570,6 +585,11 @@ export class PlayScene extends Phaser.Scene {
         } else if (Phaser.Input.Keyboard.JustDown(this.weaponKeys.five)) {
             this.switchWeapon(5);
         }
+
+        // Manual reload (E)
+        if (Phaser.Input.Keyboard.JustDown(this.reloadKey)) {
+            this.startReload(this.currentWeaponSlot);
+        }
         
         // Spacebar shooting
         if (this.levelInProgress) {
@@ -600,8 +620,7 @@ export class PlayScene extends Phaser.Scene {
         // Clean up bullets that have left the screen
         this.bullets.children.each((bullet) => {
             if (bullet.active && (bullet.x < -50 || bullet.x > 750 || bullet.y < -50 || bullet.y > 950)) {
-                bullet.setActive(false);
-                bullet.setVisible(false);
+                bullet.disableBody(true, true);
             }
         });
     }
@@ -671,6 +690,8 @@ export class PlayScene extends Phaser.Scene {
         this.currentWeaponSlot = slot;
         this.currentWeapon = getWeaponBySlot(slot);
         this.aimDistance = this.currentWeapon.crosshairDistance;
+
+        this.ensureWeaponAmmoState(slot);
         
         const crosshairKey = this.getCrosshairKey(this.currentWeapon.crosshairGap);
         this.ensureCrosshairTexture(crosshairKey, this.currentWeapon.crosshairGap);
@@ -681,9 +702,19 @@ export class PlayScene extends Phaser.Scene {
         if (this.weaponImage) {
             this.weaponImage.setTexture(this.getWeaponImageKey(slot));
         }
+        this.updateAmmoText();
     }
-    
+
     tryShoot(targetX, targetY) {
+        const ammoState = this.ensureWeaponAmmoState(this.currentWeaponSlot);
+        if (ammoState.isReloading) {
+            return false;
+        }
+        if (ammoState.ammoInMag <= 0) {
+            this.startReload(this.currentWeaponSlot);
+            return false;
+        }
+
         const now = this.time.now;
         const fireRate = this.currentWeapon.fireRate;
         if (!fireRate || fireRate <= 0) {
@@ -695,6 +726,9 @@ export class PlayScene extends Phaser.Scene {
         }
         this.nextShotTime = now + shotDelay;
         this.shoot(targetX, targetY);
+
+        ammoState.ammoInMag = Math.max(0, ammoState.ammoInMag - 1);
+        this.updateAmmoText();
         return true;
     }
     
@@ -718,8 +752,7 @@ export class PlayScene extends Phaser.Scene {
             const bullet = this.bullets.get(this.player.x, this.player.y);
             if (!bullet) return;  // No bullets available
             
-            bullet.setActive(true);
-            bullet.setVisible(true);
+            bullet.enableBody(true, this.player.x, this.player.y, true, true);
             bullet.setScale(this.currentWeapon.projectileSize);
             bullet.body.setSize(1, 1, true);
             
@@ -740,5 +773,64 @@ export class PlayScene extends Phaser.Scene {
             // Bullets shouldn't be affected by gravity
             bullet.body.allowGravity = false;
         }
+    }
+
+    bulletHitEnvironment(bullet) {
+        bullet.disableBody(true, true);
+    }
+
+    ensureWeaponAmmoState(slot) {
+        if (this.weaponAmmo[slot]) return this.weaponAmmo[slot];
+        const weapon = getWeaponBySlot(slot);
+        const magSize = weapon.magSize ?? Infinity;
+        this.weaponAmmo[slot] = {
+            ammoInMag: Number.isFinite(magSize) ? magSize : Infinity,
+            isReloading: false,
+            reloadTimer: null
+        };
+        return this.weaponAmmo[slot];
+    }
+
+    updateAmmoText() {
+        if (!this.ammoText) return;
+        const weapon = this.currentWeapon;
+        const ammoState = this.ensureWeaponAmmoState(this.currentWeaponSlot);
+        const magSize = weapon.magSize ?? Infinity;
+        if (!Number.isFinite(magSize)) {
+            this.ammoText.setText('Ammo: ∞');
+            return;
+        }
+        const base = `Ammo: ${ammoState.ammoInMag}/${magSize}`;
+        this.ammoText.setText(ammoState.isReloading ? `${base} (reloading)` : base);
+    }
+
+    startReload(slot) {
+        const weapon = getWeaponBySlot(slot);
+        const magSize = weapon.magSize ?? Infinity;
+        if (!Number.isFinite(magSize)) return false;
+
+        const ammoState = this.ensureWeaponAmmoState(slot);
+        if (ammoState.isReloading) return false;
+        if (ammoState.ammoInMag >= magSize) return false;
+
+        const reloadTimeMs = weapon.reloadTimeMs ?? 0;
+        if (reloadTimeMs <= 0) {
+            ammoState.ammoInMag = magSize;
+            this.updateAmmoText();
+            return true;
+        }
+
+        ammoState.isReloading = true;
+        if (ammoState.reloadTimer) {
+            ammoState.reloadTimer.remove(false);
+        }
+        ammoState.reloadTimer = this.time.delayedCall(reloadTimeMs, () => {
+            ammoState.ammoInMag = magSize;
+            ammoState.isReloading = false;
+            ammoState.reloadTimer = null;
+            this.updateAmmoText();
+        });
+        this.updateAmmoText();
+        return true;
     }
 }

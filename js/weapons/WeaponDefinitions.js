@@ -12,6 +12,8 @@
  * - spread: Bullet spread angle in radians (for shotgun)
  * - pellets: Number of projectiles per shot (for shotgun)
  * - projectileSize: Hitbox size multiplier (1 = normal)
+ * - magSize: Rounds per magazine
+ * - reloadTimeMs: Reload duration in milliseconds
  */
 
 export const WEAPONS = {
@@ -25,7 +27,9 @@ export const WEAPONS = {
         damage: 25,
         spread: 0,
         pellets: 1,
-        projectileSize: 1
+        projectileSize: 1,
+        magSize: 17,
+        reloadTimeMs: 1500
     },
     
     shotgun: {
@@ -38,7 +42,9 @@ export const WEAPONS = {
         damage: 15,            // Per pellet
         spread: 0.3,           // ~17 degrees spread
         pellets: 5,            // 5 pellets per shot
-        projectileSize: 0.7
+        projectileSize: 0.7,
+        magSize: 5,
+        reloadTimeMs: 3000
     },
     
     smg: {
@@ -51,7 +57,9 @@ export const WEAPONS = {
         damage: 10,
         spread: 0.1,           // Slight spread
         pellets: 1,
-        projectileSize: 0.8
+        projectileSize: 0.8,
+        magSize: 25,
+        reloadTimeMs: 2200
     },
     
     huntingRifle: {
@@ -64,7 +72,9 @@ export const WEAPONS = {
         damage: 100,
         spread: 0,
         pellets: 1,
-        projectileSize: 1
+        projectileSize: 1,
+        magSize: 3,
+        reloadTimeMs: 3500
     },
     
     autoRifle: {
@@ -77,7 +87,9 @@ export const WEAPONS = {
         damage: 20,
         spread: 0.05,          // Very slight spread
         pellets: 1,
-        projectileSize: 1
+        projectileSize: 1,
+        magSize: 20,
+        reloadTimeMs: 2800
     }
 };
 
