@@ -1,12 +1,12 @@
 # Current Work Focus
 
-Building weapon system with multiple weapon types. Keyboard aiming complete. Weapon definitions created. Weapon switching, crosshair tuning, shotgun spread, fire rate limiter, and fire modes implemented.
+Weapon system baseline is in place; shifting focus to improving player movement feel and adding movement abilities.
 
 - **Project Goal:** Build a browser-based stick figure arena shooter with depth in combat, enemies, and procedural levels
 
-- **Intermediate Goal:** Implement multi-weapon system with different behaviors
+- **Intermediate Goal:** Improve player movement (feel + abilities)
 
-- **Current Task:** Weapon system - test/tune magazines + reloads
+- **Current Task:** Movement pass 1: lower jump height + step-up small ledges
 
 ## Weapon System Progress
 

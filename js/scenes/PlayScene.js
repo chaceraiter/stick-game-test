@@ -56,23 +56,35 @@ export class PlayScene extends Phaser.Scene {
         
         
         // === PLAYER (hand-drawn stick figure - 0.75x original) ===
-        if (!this.textures.exists('player')) {
+        // Regenerate so small sprite tweaks show up after restart.
+        if (this.textures.exists('player')) this.textures.remove('player');
+        {
             const playerGraphics = this.add.graphics();
             playerGraphics.lineStyle(1.5, 0x1a1a1a);  // Black pen
-            
-            // Simple stick figure: head, body, legs
+
+            // Base pose faces right (we flipX when facing left)
             // Head (circle)
             playerGraphics.strokeCircle(4.5, 3, 2.25);
+
+            // Nose (tiny stroke to show facing direction)
+            playerGraphics.beginPath();
+            playerGraphics.moveTo(6.5, 3.0);
+            playerGraphics.lineTo(7.6, 3.4);
+            playerGraphics.strokePath();
+
             // Body (line down)
             playerGraphics.beginPath();
             playerGraphics.moveTo(4.5, 5.25);
             playerGraphics.lineTo(4.5, 10.5);
             playerGraphics.strokePath();
-            // Arms (line across)
+
+            // Arms (slightly forward to the right)
             playerGraphics.beginPath();
             playerGraphics.moveTo(1.5, 7.5);
-            playerGraphics.lineTo(7.5, 7.5);
+            playerGraphics.lineTo(4.5, 7.7);
+            playerGraphics.lineTo(7.5, 7.2);
             playerGraphics.strokePath();
+
             // Legs (two lines)
             playerGraphics.beginPath();
             playerGraphics.moveTo(4.5, 10.5);
@@ -80,13 +92,106 @@ export class PlayScene extends Phaser.Scene {
             playerGraphics.moveTo(4.5, 10.5);
             playerGraphics.lineTo(6.75, 15);
             playerGraphics.strokePath();
-            
+
             playerGraphics.generateTexture('player', 9, 17);
+            playerGraphics.destroy();
+        }
+
+        // Stance sprites are tiny; regenerate them each scene create so tweaks show up after restart.
+        if (this.textures.exists('player-crouch')) this.textures.remove('player-crouch');
+        {
+            const playerGraphics = this.add.graphics();
+            playerGraphics.lineStyle(1.5, 0x1a1a1a);
+
+            // Crouch: ~60% standing height, same width (9x10)
+            // Head
+            playerGraphics.strokeCircle(4.5, 2.6, 2.1);
+
+            // Nose (tiny stroke to show facing direction)
+            playerGraphics.beginPath();
+            playerGraphics.moveTo(6.4, 2.6);
+            playerGraphics.lineTo(7.5, 3.0);
+            playerGraphics.strokePath();
+
+            // Torso
+            playerGraphics.beginPath();
+            playerGraphics.moveTo(4.5, 4.8);
+            playerGraphics.lineTo(4.5, 6.6);
+            playerGraphics.strokePath();
+
+            // Arms (tucked in)
+            playerGraphics.beginPath();
+            playerGraphics.moveTo(2.1, 5.7);
+            playerGraphics.lineTo(4.5, 6.2);
+            playerGraphics.lineTo(6.9, 5.8);
+            playerGraphics.strokePath();
+
+            // Bent legs
+            playerGraphics.beginPath();
+            playerGraphics.moveTo(4.5, 6.6);
+            playerGraphics.lineTo(3.2, 8.0);
+            playerGraphics.lineTo(2.6, 9.8);
+            playerGraphics.moveTo(4.5, 6.6);
+            playerGraphics.lineTo(5.8, 8.0);
+            playerGraphics.lineTo(6.4, 9.8);
+            playerGraphics.strokePath();
+
+            playerGraphics.generateTexture('player-crouch', 9, 10);
+            playerGraphics.destroy();
+        }
+
+        if (this.textures.exists('player-prone')) this.textures.remove('player-prone');
+        {
+            const playerGraphics = this.add.graphics();
+            playerGraphics.lineStyle(1.5, 0x1a1a1a);
+
+            // Prone: roughly standing hitbox rotated (17x9)
+            // Base pose faces left (we flipX when facing right)
+            const y = 4.5;
+
+            // Head (left)
+            playerGraphics.strokeCircle(3.0, y, 2.0);
+
+            // Nose (tiny stroke to show facing direction)
+            playerGraphics.beginPath();
+            playerGraphics.moveTo(1.0, y - 0.1);
+            playerGraphics.lineTo(0.2, y - 0.6);
+            playerGraphics.strokePath();
+
+            // Torso (horizontal)
+            playerGraphics.beginPath();
+            playerGraphics.moveTo(5.2, y);
+            playerGraphics.lineTo(13.8, y);
+            playerGraphics.strokePath();
+
+            // Arm (forward/down)
+            playerGraphics.beginPath();
+            playerGraphics.moveTo(6.2, y);
+            playerGraphics.lineTo(0.4, y + 2.2);
+            playerGraphics.strokePath();
+
+            // Legs (two lines, trailing right)
+            playerGraphics.beginPath();
+            playerGraphics.moveTo(12.8, y);
+            playerGraphics.lineTo(16.0, y - 2.3);
+            playerGraphics.moveTo(12.8, y);
+            playerGraphics.lineTo(16.0, y + 2.3);
+            playerGraphics.strokePath();
+
+            playerGraphics.generateTexture('player-prone', 17, 9);
             playerGraphics.destroy();
         }
         
         // Create player with physics - start on the left bottom platform
         this.player = this.physics.add.sprite(100, 600, 'player');
+
+        // Player stance state (stand -> crouch -> prone)
+        this.currentStance = 'stand';
+        this.nextStanceChangeTime = 0;
+        this.applyStance(this.currentStance);
+
+        // Keep player above most environment visuals
+        this.player.setDepth(10);
         
         // Player physics properties
         this.player.setBounce(0.1);  // Tiny bounce when landing
@@ -111,10 +216,29 @@ export class PlayScene extends Phaser.Scene {
         // Create crosshair sprite
         this.crosshair = this.add.image(0, 0, crosshairKey);
         this.crosshair.setAlpha(0.7);  // Semi-transparent
+        this.crosshair.setDepth(20);
+
+        // === GUN SPRITE (visual only) ===
+        if (!this.textures.exists('gun')) {
+            const gunGraphics = this.add.graphics();
+            gunGraphics.fillStyle(0x8B5A2B, 1); // Brown
+            gunGraphics.fillRect(0, 0, 10, 2); // ~1.5x arm length
+            gunGraphics.generateTexture('gun', 10, 2);
+            gunGraphics.destroy();
+        }
+        this.gun = this.add.image(0, 0, 'gun');
+        this.gun.setOrigin(0, 0.5); // Left end anchors at chest
+        this.gun.setDepth(11);
         
         // Aim state - angle in radians (0 = right, increases counterclockwise)
         this.aimAngle = 0;
         this.aimDistance = this.currentWeapon.crosshairDistance;
+        this.facing = 1; // 1 = right, -1 = left
+        this.updateGunTransform();
+        this.updateFacingFromAim();
+
+        this.facingDebugGraphics = this.add.graphics();
+        this.facingDebugGraphics.setDepth(30);
         
         
         // === INPUT ===
@@ -136,6 +260,7 @@ export class PlayScene extends Phaser.Scene {
             rotateRight: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K)   // Clockwise
         };
         this.aimRotationSpeed = 1.5;  // Radians per second
+        this.quickTurnKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.L);
         
         // Mouse click to shoot (or continue after level complete)
         this.input.on('pointerdown', (pointer) => {
@@ -239,7 +364,7 @@ export class PlayScene extends Phaser.Scene {
         
         // === UI TEXT ===
         // Show some instructions (smaller for notebook canvas)
-        this.add.text(60, 16, 'WASD: move | J/K: aim | Space/Click: shoot | E: reload | R/G/F/H: debug', {
+        this.add.text(60, 16, 'WASD: move | W/S: stance (W jumps if standing) | J/K: aim | Space/Click: shoot | E: reload | R/G/F/H: debug', {
             fontSize: '9px',
             fill: '#333',
             backgroundColor: 'rgba(255,255,255,0.8)',
@@ -524,10 +649,13 @@ export class PlayScene extends Phaser.Scene {
             }
             // flyToggled is handled internally by DebugControls
         }
+
+        // Keep facing synced even when aim isn't moving (affects movement penalty + debug vector)
+        this.updateFacingFromAim();
         
         const speed = 120;  // Scaled down for smaller characters
         const flySpeed = 200;  // Speed when flying
-        const jumpVelocity = -280;  // Scaled down - smaller jump for zoomed-out feel
+        const jumpVelocity = -120;  // ~8-9px jump apex with gravity=800 (about half the 17px player height)
         
         // Left/Right movement (arrows or WASD)
         const flyMode = this.debugControls.isFlyMode();
@@ -535,6 +663,13 @@ export class PlayScene extends Phaser.Scene {
         const rightDown = this.cursors.right.isDown || this.wasd.right.isDown;
         const upDown = this.cursors.up.isDown || this.wasd.up.isDown;
         const downDown = this.cursors.down.isDown || this.wasd.down.isDown;
+
+        const upJustDown =
+            Phaser.Input.Keyboard.JustDown(this.wasd.up) ||
+            Phaser.Input.Keyboard.JustDown(this.cursors.up);
+        const downJustDown =
+            Phaser.Input.Keyboard.JustDown(this.wasd.down) ||
+            Phaser.Input.Keyboard.JustDown(this.cursors.down);
         
         if (flyMode) {
             const inputX = (rightDown ? 1 : 0) - (leftDown ? 1 : 0);
@@ -549,17 +684,34 @@ export class PlayScene extends Phaser.Scene {
                 this.player.setVelocity(0, 0);
             }
         } else {
-            if (leftDown) {
-                this.player.setVelocityX(-speed);
-            } else if (rightDown) {
-                this.player.setVelocityX(speed);
+            // Stance changes (W=up stance, S=down stance), with cooldown between changes
+            if (upJustDown && this.currentStance !== 'stand') {
+                this.tryChangeStance('up');
+            } else if (downJustDown && this.currentStance !== 'prone') {
+                this.tryChangeStance('down');
+            }
+
+            // Quick 180 turn without rotating all the way around (crouch/stand only)
+            if (Phaser.Input.Keyboard.JustDown(this.quickTurnKey) && this.currentStance !== 'prone') {
+                this.aimAngle = Phaser.Math.Angle.Wrap(Math.PI - this.aimAngle);
+                this.updateFacingFromAim();
+            }
+
+            const stanceSpeedMultiplier = this.getStanceSpeedMultiplier();
+            const moveDir = (rightDown ? 1 : 0) - (leftDown ? 1 : 0);
+            if (moveDir !== 0) {
+                const baseSpeed = speed * stanceSpeedMultiplier;
+                const forwardMultiplier = 1;
+                const backwardMultiplier = 0.5;
+                const facingMultiplier = moveDir === this.facing ? forwardMultiplier : backwardMultiplier;
+                this.player.setVelocityX(baseSpeed * moveDir * facingMultiplier);
             } else {
                 // No key pressed - stop horizontal movement
                 this.player.setVelocityX(0);
             }
             
-            // Normal mode: jumping when touching ground
-            if (upDown && this.player.body.blocked.down) {
+            // Normal mode: W/Up jumps only if already standing
+            if (this.currentStance === 'stand' && upJustDown && this.player.body.blocked.down) {
                 this.player.setVelocityY(jumpVelocity);
             }
         }
@@ -572,6 +724,8 @@ export class PlayScene extends Phaser.Scene {
         if (this.aimKeys.rotateRight.isDown) {
             this.aimAngle += this.aimRotationSpeed * deltaTime;
         }
+        this.aimAngle = Phaser.Math.Angle.Wrap(this.aimAngle);
+        this.updateFacingFromAim();
         
         // Weapon switching (1-5)
         if (Phaser.Input.Keyboard.JustDown(this.weaponKeys.one)) {
@@ -616,6 +770,8 @@ export class PlayScene extends Phaser.Scene {
         // Update crosshair position (orbits player at fixed distance)
         this.crosshair.x = this.player.x + Math.cos(this.aimAngle) * this.aimDistance;
         this.crosshair.y = this.player.y + Math.sin(this.aimAngle) * this.aimDistance;
+        this.updateGunTransform();
+        this.drawFacingDebug();
         
         // Clean up bullets that have left the screen
         this.bullets.children.each((bullet) => {
@@ -777,6 +933,123 @@ export class PlayScene extends Phaser.Scene {
 
     bulletHitEnvironment(bullet) {
         bullet.disableBody(true, true);
+    }
+
+    getGunMountOffset() {
+        if (this.currentStance === 'stand') return { x: 0, y: -1 };
+        if (this.currentStance === 'crouch') return { x: 0, y: 0 };
+        if (this.currentStance === 'prone') return { x: 0, y: 0 };
+        return { x: 0, y: 0 };
+    }
+
+    updateGunTransform() {
+        if (!this.gun || !this.player) return;
+        const offset = this.getGunMountOffset();
+        this.gun.setPosition(this.player.x + offset.x, this.player.y + offset.y);
+        this.gun.setRotation(this.aimAngle);
+    }
+
+    updateFacingFromAim() {
+        if (!this.player) return;
+        const newFacing = Math.cos(this.aimAngle) >= 0 ? 1 : -1;
+        if (newFacing === this.facing) return;
+        this.facing = newFacing;
+        this.player.setFlipX(this.facing === -1);
+    }
+
+    getHeadWorldPosition() {
+        if (!this.player || !this.player.body) return { x: this.player.x, y: this.player.y };
+
+        if (this.currentStance === 'prone') {
+            const headInset = 3;
+            const headX = this.facing === 1 ? this.player.body.right - headInset : this.player.body.left + headInset;
+            const headY = this.player.body.top + (this.player.body.height / 2);
+            return { x: headX, y: headY };
+        }
+
+        const headX = this.player.body.center.x;
+        const headY = this.player.body.top + 3;
+        return { x: headX, y: headY };
+    }
+
+    drawFacingDebug() {
+        if (!this.facingDebugGraphics) return;
+        this.facingDebugGraphics.clear();
+
+        const head = this.getHeadWorldPosition();
+        const length = 7;
+        const endX = head.x + this.facing * length;
+        const endY = head.y;
+
+        this.facingDebugGraphics.lineStyle(2, 0xff00ff, 0.9);
+        this.facingDebugGraphics.beginPath();
+        this.facingDebugGraphics.moveTo(head.x, head.y);
+        this.facingDebugGraphics.lineTo(endX, endY);
+        this.facingDebugGraphics.strokePath();
+
+        this.facingDebugGraphics.fillStyle(0xff00ff, 0.9);
+        this.facingDebugGraphics.fillCircle(endX, endY, 1.3);
+    }
+
+    getStanceSpeedMultiplier() {
+        if (this.currentStance === 'crouch') return 0.7;
+        if (this.currentStance === 'prone') return 0.45;
+        return 1;
+    }
+
+    tryChangeStance(direction) {
+        const now = this.time.now;
+        if (now < this.nextStanceChangeTime) return false;
+
+        const oldStance = this.currentStance;
+        let newStance = oldStance;
+
+        if (direction === 'down') {
+            if (oldStance === 'stand') newStance = 'crouch';
+            else if (oldStance === 'crouch') newStance = 'prone';
+        } else if (direction === 'up') {
+            if (oldStance === 'prone') newStance = 'crouch';
+            else if (oldStance === 'crouch') newStance = 'stand';
+        }
+
+        if (newStance === oldStance) return false;
+
+        this.currentStance = newStance;
+        this.applyStance(newStance);
+        this.nextStanceChangeTime = now + 250;
+        return true;
+    }
+
+    applyStance(stance) {
+        const x = this.player.x;
+        const oldBottom = this.player.body ? this.player.body.bottom : this.player.y;
+        const velocityX = this.player.body.velocity.x;
+        const velocityY = this.player.body.velocity.y;
+
+        if (stance === 'stand') {
+            this.player.setTexture('player');
+            this.player.body.setSize(9, 17, false);
+            this.player.body.setOffset(0, 0);
+        } else if (stance === 'crouch') {
+            this.player.setTexture('player-crouch');
+            this.player.body.setSize(9, 10, false);
+            this.player.body.setOffset(0, 0);
+        } else if (stance === 'prone') {
+            this.player.setTexture('player-prone');
+            this.player.body.setSize(17, 9, false);
+            this.player.body.setOffset(0, 0);
+        }
+
+        // Keep physics stable after body size changes
+        this.player.body.reset(x, this.player.y);
+        const newBottom = this.player.body.bottom;
+        const delta = oldBottom - newBottom;
+        if (Math.abs(delta) > 0.01) {
+            this.player.y += delta;
+            this.player.body.reset(x, this.player.y);
+        }
+        this.player.setVelocity(velocityX, velocityY);
+        this.updateFacingFromAim();
     }
 
     ensureWeaponAmmoState(slot) {

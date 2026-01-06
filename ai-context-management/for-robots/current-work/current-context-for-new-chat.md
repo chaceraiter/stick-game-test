@@ -7,7 +7,10 @@ A stick figure arena shooter built with Phaser 3, styled to look like doodles on
 ## What Works
 
 - **Player movement:** WASD or arrow keys to move, W/Up to jump
+- **Stances:** W/S (or Up/Down) cycles stand ↔ crouch ↔ prone (250ms cooldown); W jumps only if already standing
+- **Movement tuning:** lower jump height; slower movement when crouched/prone; 0.5× speed when moving backward vs facing
 - **Aiming:** Crosshair orbits player at fixed distance, J/K to rotate aim
+- **Facing + quick turn:** character faces left/right based on aim side; L mirrors aim for quick 180 turns (stand/crouch only); debug facing vector shown
 - **Shooting:** Spacebar or click fires toward crosshair
 - **Projectile collisions:** Bullets disappear when they hit platforms/walls (in addition to enemies)
 - **Weapon switching:** 1–5 keys switch weapons
@@ -90,7 +93,9 @@ stick-game-test/
 | Action | Keys |
 |--------|------|
 | Move | WASD or Arrows |
-| Jump | W or Up |
+| Jump | W or Up (standing only) |
+| Stance up/down | W/S or Up/Down |
+| Quick turn | L |
 | Aim | J (CCW), K (CW) |
 | Shoot | Space or Click |
 | Reload | E |
@@ -114,11 +119,23 @@ stick-game-test/
 
 ## Next Steps
 
-Test/tune magazines + reloads UX, then move on to the next weapon-system milestone (damage/health, projectile feel, or procedural generator).
+Shift focus to player movement improvements (jump height, step-up small ledges), then decide next milestone (damage/health, projectile feel, or procedural generator).
 
 ## Wishlist / Planning Notes
 
 - Consider limiting weapon art/style to cowboy-type guns only (revisit weapon art choices).
+- Movement wishlist:
+  - Much lower jump height.
+  - Walk up small steps/ledges (basic “step-up” support).
+  - Jetpack/jumppack style movement ability.
+  - Grappling gun / grappling hook.
+  - Revisit movement speed (and possibly acceleration vs instant velocity).
+  - Add crouch + prone with associated sprites and movement-speed changes.
+  - Tweak movement velocities (walk/air/stance multipliers).
+  - Tweak flip-direction behavior (when/how facing switches).
+  - Consider stance-based aim constraints (e.g. prone aim limits).
+  - Consider aim acceleration/response (instead of constant turn rate).
+  - Tweak crouch height/hitbox sizing and feel.
 - Bullet collision reliability ideas (if tunneling/artifacts show up with fast bullets):
   - Lower projectile velocities (and/or cap max projectile speed per weapon).
   - Slightly larger projectile physics body (sprite can stay small).
@@ -127,4 +144,3 @@ Test/tune magazines + reloads UX, then move on to the next weapon-system milesto
   - Instant hit-scan for straight-line weapons: on shot, raycast/segment-test against platforms/walls/enemies and place the bullet at the first hit (no per-frame collision checks); still spawn a visual tracer if desired.
 - Hit spark or impact indicator (visual feedback on hits).
 - Optional projectile debug overlay (toggleable), implemented without noticeable slowdown.
-- Investigate sporadic false bullet velocity vectors when many projectiles are on screen (temporary deflection artifacts).
