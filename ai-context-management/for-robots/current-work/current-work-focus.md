@@ -6,7 +6,7 @@ Weapon system baseline is in place; shifting focus to improving player movement 
 
 - **Intermediate Goal:** Improve player movement (feel + abilities)
 
-- **Current Task:** Movement pass 1: lower jump height + step-up small ledges
+- **Current Task:** Grapple pass 2: swing pumping + rope obstruction
 
 ## Weapon System Progress
 
@@ -34,6 +34,15 @@ Weapon system baseline is in place; shifting focus to improving player movement 
 - ✅ Weapon image UI (temporary clip art)
 - ✅ Bullet/projectile collision with platforms + walls (bullets disappear on impact)
 - ✅ Magazines + reloads (per-weapon mag size + reload time)
+- ✅ Jump pack test (I/O keys) + jet flame
+- ✅ Grapple prototype + miss tracer + swing pumping starter
+
+## Grapple Pass 2 Plan (Current)
+
+- Fix swing “stickiness”/jitter (Arcade constraint smoothing)
+- Pump-only A/D controls (tangential), tuned for realism
+- Preserve momentum when releasing grapple (no immediate velocity wipe)
+- Rope obstruction rule: auto-release if rope intersects platforms/walls
 
 ## Feature Roadmap (See project-vision-and-goals.md)
 

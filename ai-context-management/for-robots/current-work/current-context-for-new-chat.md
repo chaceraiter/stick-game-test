@@ -1,8 +1,8 @@
 # Current Context for New Chat
 
-## Project Status: Weapon System In Progress
+## Project Status: Movement Abilities In Progress
 
-A stick figure arena shooter built with Phaser 3, styled to look like doodles on crumpled notebook paper. Recently added keyboard aiming system. Now building out a multi-weapon system.
+A stick figure arena shooter built with Phaser 3, styled to look like doodles on crumpled notebook paper. Weapon system baseline is complete; current focus is movement abilities (jump pack + grappling hook) and movement feel.
 
 ## What Works
 
@@ -12,7 +12,7 @@ A stick figure arena shooter built with Phaser 3, styled to look like doodles on
 - **Aiming:** Crosshair orbits player at fixed distance, J/K to rotate aim
 - **Facing + quick turn:** character faces left/right based on aim side; L mirrors aim for quick 180 turns (stand/crouch only); debug facing vector shown
 - **Jump pack (test):** I = upward kick, O = short upward thrust; orange jet flame visual
-- **Grapple (test):** N deploys/release; 2000ms cooldown; attaches only if ray hits platform/wall; W reels in, S reels out; rope is drawn and acts like a simple swing constraint
+- **Grapple (test):** N deploys/release; 2000ms cooldown; attaches only if ray hits platform/wall; rope constraint enables swinging; A/D pumps swing (tangential accel) when taut; W reels in, S reels out; true misses show a brief orange shot line
 - **Shooting:** Spacebar or click fires toward crosshair
 - **Projectile collisions:** Bullets disappear when they hit platforms/walls (in addition to enemies)
 - **Weapon switching:** 1–5 keys switch weapons
@@ -29,7 +29,7 @@ A stick figure arena shooter built with Phaser 3, styled to look like doodles on
 - **Walls:** Hand-drawn with crayon fill
 - **Debug controls:** R (restart), G (next layout), F (fly), H (hitboxes)
 
-## In Progress: Weapon System
+## Weapon System: Complete
 
 **Completed steps:**
 1. ✅ Created `js/weapons/WeaponDefinitions.js` with 5 weapons defined
@@ -40,8 +40,6 @@ A stick figure arena shooter built with Phaser 3, styled to look like doodles on
 6. ✅ Unique weapon behaviors (shotgun spread, pellets)
 7. ✅ Fire rate limiting per weapon
 8. ✅ Fire modes (semi/auto) per weapon
-
-**Remaining steps:**
 9. ✅ Implemented magazine sizes + reloads + reload times
 
 ### Weapons Defined (in WeaponDefinitions.js)
@@ -99,6 +97,7 @@ stick-game-test/
 | Stance up/down | W/S or Up/Down |
 | Quick turn | L |
 | Grapple | N (toggle), W/S reel |
+| Grapple (pump) | A/D (while grappling) |
 | Aim | J (CCW), K (CW) |
 | Shoot | Space or Click |
 | Reload | E |
@@ -119,14 +118,39 @@ stick-game-test/
 11. Reduced projectile size (2x2 visual, 1x1 hitbox)
 12. Implemented bullet collision with platforms/walls (disable bullets on impact using pooled-bullet `enableBody/disableBody` pattern)
 13. Implemented per-weapon magazines + reload timers + ammo UI (`E` reload, auto-reload on empty)
+14. Added jump pack test (I/O) + orange jet flame
+15. Added grappling hook prototype (N deploy/release; W/S reeling)
+16. Added grapple miss tracer (brief orange line on true misses)
+17. Added pump-only swing controls (A/D tangential accel) + improved rope constraint (taut projection + remove radial velocity)
 
 ## Next Steps
 
-Shift focus to player movement improvements (jump height, step-up small ledges), then decide next milestone (damage/health, projectile feel, or procedural generator).
+Grapple pass 2: stabilize swing feel + add rope obstruction rules + preserve momentum on release; then decide next milestone (damage/health, projectile feel, or procedural generator).
 
 ## Wishlist / Planning Notes
 
 - Consider limiting weapon art/style to cowboy-type guns only (revisit weapon art choices).
+- Grapple (pass 2) plan: swing feel + rope obstruction
+  - **Implemented so far:**
+    - Pump-only A/D: applies tangential acceleration only (no “walk” control while grapple is active).
+    - Rope constraint: project player mount point back to the rope circle and remove radial velocity to keep motion tangential.
+    - Miss tracer: brief orange shot line on true misses (post-cooldown) so misses are visible.
+  - **Known issues / observations:**
+    - Swing motion can feel choppy/buggy (Arcade-style constraint + collisions).
+    - Pumping can build energy fast enough to allow full loops from a dead hang (tune realism).
+    - Player horizontal velocity can “disappear” after releasing grapple (likely due to non-grapple movement logic zeroing X velocity when no input).
+    - Ceiling/underside attachments can get “stuck” against platform collision resolution (still allowed; needs better obstruction rules).
+  - **Swing pump controls (next tuning):**
+    - Reduce `pumpAccel`, clamp max speed lower, and/or only allow pumping near bottom of arc (angle/vertical-speed gated) to prevent unrealistic full loops.
+    - Optional: pump adds energy only if input matches current tangential velocity direction (prevents instant reversals).
+  - **Rope obstruction rules (simple + fast):**
+    - Only while grappling, segment-test mount→anchor against platform/wall AABBs.
+    - If the rope segment intersects anything *before* the anchor point (t < 1 - ε), **auto-release**.
+    - Perf: with current platform/wall counts this is negligible; can optimize later (broad-phase filter, every N frames, only when mount moved, etc.).
+    - Important: allow ceiling grapples without instantly “self-blocking” on the anchored platform (epsilon/ignore the body containing the anchor hit).
+  - **Release momentum (next):**
+    - Avoid `setVelocityX(0)` style logic while in-air; move toward acceleration/friction-based horizontal movement so momentum carries through grapple release.
+  - **Future behavior idea:** “edge catch” (re-anchor rope to the blocking hit point) instead of releasing; rope wrapping later if desired.
 - Movement wishlist:
   - Much lower jump height.
   - Walk up small steps/ledges (basic “step-up” support).

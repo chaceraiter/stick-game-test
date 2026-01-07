@@ -281,6 +281,10 @@ export class PlayScene extends Phaser.Scene {
         this.grappleActive = false;
         this.grappleAnchor = null;
         this.grappleRopeLength = 0;
+        this.grappleShotUntil = 0;
+        this.grappleShotFadeMs = 350;
+        this.grappleShotStart = null;
+        this.grappleShotEnd = null;
         this.grappleGraphics = this.add.graphics();
         this.grappleGraphics.setDepth(15);
 
@@ -686,6 +690,8 @@ export class PlayScene extends Phaser.Scene {
 
         // Keep facing synced even when aim isn't moving (affects movement penalty + debug vector)
         this.updateFacingFromAim();
+
+        const deltaSeconds = this.game.loop.delta / 1000;
         
         const speed = 120;  // Scaled down for smaller characters
         const flySpeed = 200;  // Speed when flying
@@ -743,17 +749,21 @@ export class PlayScene extends Phaser.Scene {
                 this.updateFacingFromAim();
             }
 
-            const stanceSpeedMultiplier = this.getStanceSpeedMultiplier();
             const moveDir = (rightDown ? 1 : 0) - (leftDown ? 1 : 0);
-            if (moveDir !== 0) {
-                const baseSpeed = speed * stanceSpeedMultiplier;
-                const forwardMultiplier = 1;
-                const backwardMultiplier = 0.5;
-                const facingMultiplier = moveDir === this.facing ? forwardMultiplier : backwardMultiplier;
-                this.player.setVelocityX(baseSpeed * moveDir * facingMultiplier);
+            if (this.grappleActive) {
+                this.applyGrapplePump(moveDir, deltaSeconds);
             } else {
-                // No key pressed - stop horizontal movement
-                this.player.setVelocityX(0);
+                const stanceSpeedMultiplier = this.getStanceSpeedMultiplier();
+                if (moveDir !== 0) {
+                    const baseSpeed = speed * stanceSpeedMultiplier;
+                    const forwardMultiplier = 1;
+                    const backwardMultiplier = 0.5;
+                    const facingMultiplier = moveDir === this.facing ? forwardMultiplier : backwardMultiplier;
+                    this.player.setVelocityX(baseSpeed * moveDir * facingMultiplier);
+                } else {
+                    // No key pressed - stop horizontal movement
+                    this.player.setVelocityX(0);
+                }
             }
             
             // Normal mode: W/Up jumps only if already standing
@@ -1128,7 +1138,15 @@ export class PlayScene extends Phaser.Scene {
         };
 
         const hit = this.findGrappleHit(start, end);
-        if (!hit) return false;
+        if (!hit) {
+            this.grappleShotUntil = now + this.grappleShotFadeMs;
+            this.grappleShotStart = { x: start.x, y: start.y };
+            this.grappleShotEnd = { x: end.x, y: end.y };
+            return false;
+        }
+        this.grappleShotUntil = 0;
+        this.grappleShotStart = null;
+        this.grappleShotEnd = null;
 
         this.grappleActive = true;
         this.grappleAnchor = { x: hit.x, y: hit.y };
@@ -1151,8 +1169,6 @@ export class PlayScene extends Phaser.Scene {
         const dist = Math.hypot(dx, dy);
         if (dist <= 0.0001) return;
 
-        if (dist <= this.grappleRopeLength) return;
-
         const nx = dx / dist;
         const ny = dy / dist;
 
@@ -1161,30 +1177,81 @@ export class PlayScene extends Phaser.Scene {
         const offsetX = desiredMountX - mount.x;
         const offsetY = desiredMountY - mount.y;
 
-        this.player.body.reset(this.player.x + offsetX, this.player.y + offsetY);
+        if (Math.abs(offsetX) > 0.01 || Math.abs(offsetY) > 0.01) {
+            const prevVelX = this.player.body.velocity.x;
+            const prevVelY = this.player.body.velocity.y;
+            this.player.body.reset(this.player.x + offsetX, this.player.y + offsetY);
+            this.player.body.velocity.x = prevVelX;
+            this.player.body.velocity.y = prevVelY;
+        }
 
         const vel = this.player.body.velocity;
         const radialVel = vel.x * nx + vel.y * ny;
-        if (radialVel > 0) {
-            vel.x -= radialVel * nx;
-            vel.y -= radialVel * ny;
+        vel.x -= radialVel * nx;
+        vel.y -= radialVel * ny;
+    }
+
+    applyGrapplePump(moveDir, dt) {
+        if (!this.grappleActive || !this.grappleAnchor || !this.player || !this.player.body) return;
+        if (moveDir === 0) return;
+
+        const mount = this.getGrappleMountWorldPosition();
+        const dx = mount.x - this.grappleAnchor.x;
+        const dy = mount.y - this.grappleAnchor.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist <= 0.0001) return;
+
+        const nx = dx / dist;
+        const ny = dy / dist;
+
+        // Pump only when the rope is roughly taut (avoids turning this into air-control when slack).
+        if (dist < this.grappleRopeLength * 0.98) return;
+
+        // Tangent direction (perpendicular to rope). This is the "swing pump" direction.
+        const tangentX = ny;
+        const tangentY = -nx;
+
+        const pumpAccel = 900; // px/s^2
+        this.player.body.velocity.x += tangentX * pumpAccel * dt * moveDir;
+        this.player.body.velocity.y += tangentY * pumpAccel * dt * moveDir;
+
+        const maxSpeed = 520;
+        const vel = this.player.body.velocity;
+        const speed = Math.hypot(vel.x, vel.y);
+        if (speed > maxSpeed) {
+            vel.x = (vel.x / speed) * maxSpeed;
+            vel.y = (vel.y / speed) * maxSpeed;
         }
     }
 
     drawGrapple() {
         if (!this.grappleGraphics) return;
         this.grappleGraphics.clear();
-        if (!this.grappleActive || !this.grappleAnchor) return;
 
-        const mount = this.getGrappleMountWorldPosition();
-        this.grappleGraphics.lineStyle(1.5, 0x333333, 0.9);
-        this.grappleGraphics.beginPath();
-        this.grappleGraphics.moveTo(mount.x, mount.y);
-        this.grappleGraphics.lineTo(this.grappleAnchor.x, this.grappleAnchor.y);
-        this.grappleGraphics.strokePath();
+        if (this.grappleActive && this.grappleAnchor) {
+            const mount = this.getGrappleMountWorldPosition();
+            this.grappleGraphics.lineStyle(1.5, 0x333333, 0.9);
+            this.grappleGraphics.beginPath();
+            this.grappleGraphics.moveTo(mount.x, mount.y);
+            this.grappleGraphics.lineTo(this.grappleAnchor.x, this.grappleAnchor.y);
+            this.grappleGraphics.strokePath();
 
-        this.grappleGraphics.fillStyle(0x333333, 0.9);
-        this.grappleGraphics.fillCircle(this.grappleAnchor.x, this.grappleAnchor.y, 2);
+            this.grappleGraphics.fillStyle(0x333333, 0.9);
+            this.grappleGraphics.fillCircle(this.grappleAnchor.x, this.grappleAnchor.y, 2);
+            return;
+        }
+
+        // Brief failed-shot line when grapple misses
+        const now = this.time.now;
+        if (now < this.grappleShotUntil && this.grappleShotStart && this.grappleShotEnd) {
+            const t = (this.grappleShotUntil - now) / this.grappleShotFadeMs;
+            const alpha = Phaser.Math.Clamp(t, 0, 1);
+            this.grappleGraphics.lineStyle(2, 0xff7a00, 0.85 * alpha);
+            this.grappleGraphics.beginPath();
+            this.grappleGraphics.moveTo(this.grappleShotStart.x, this.grappleShotStart.y);
+            this.grappleGraphics.lineTo(this.grappleShotEnd.x, this.grappleShotEnd.y);
+            this.grappleGraphics.strokePath();
+        }
     }
 
     findGrappleHit(start, end) {
