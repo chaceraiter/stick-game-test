@@ -39,10 +39,10 @@ Weapon system baseline is in place; shifting focus to improving player movement 
 
 ## Grapple Pass 2 Plan (Current)
 
-- Fix swing “stickiness”/jitter (Arcade constraint smoothing)
-- Pump-only A/D controls (tangential), tuned for realism
-- Preserve momentum when releasing grapple (no immediate velocity wipe)
-- Rope obstruction rule: auto-release if rope intersects platforms/walls
+- Preserve momentum when releasing grapple (no immediate X velocity wipe after release)
+- Rope obstruction rule: auto-release if rope intersects platforms/walls (keep ceiling grapples but prevent “stuck under platform”)
+- Fix swing “stickiness”/jitter (Arcade constraint smoothing + epsilon to reduce micro-resets)
+- Tune pump realism (gated pumping near bottom of arc + lower accel/clamps)
 
 ## Feature Roadmap (See project-vision-and-goals.md)
 

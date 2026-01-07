@@ -140,9 +140,27 @@ Grapple pass 2: stabilize swing feel + add rope obstruction rules + preserve mom
     - Pumping can build energy fast enough to allow full loops from a dead hang (tune realism).
     - Player horizontal velocity can “disappear” after releasing grapple (likely due to non-grapple movement logic zeroing X velocity when no input).
     - Ceiling/underside attachments can get “stuck” against platform collision resolution (still allowed; needs better obstruction rules).
-  - **Swing pump controls (next tuning):**
-    - Reduce `pumpAccel`, clamp max speed lower, and/or only allow pumping near bottom of arc (angle/vertical-speed gated) to prevent unrealistic full loops.
-    - Optional: pump adds energy only if input matches current tangential velocity direction (prevents instant reversals).
+  - **Next session: do these one-by-one**
+    1) **Preserve momentum on release (fix “velocity disappears”)**
+       - Cause: non-grapple movement code uses `setVelocityX(0)` when no A/D input, so the first frame after release can wipe X velocity.
+       - Fix direction: do not hard-zero X velocity while airborne; use ground-only friction or an accel/decel model.
+       - Acceptance: release grapple mid-swing and keep most of your horizontal speed without holding A/D.
+    2) **Rope obstruction ⇒ immediate auto-release**
+       - Rule: while grappling, segment-test mount→anchor against platform/wall AABBs; if any hit occurs with `t < 1 - ε`, release.
+       - Keep ceiling grapples, but ensure we don’t self-block on the anchor surface (epsilon + ignore the body containing the anchor point, if needed).
+       - Acceptance: grapples that would “clip through” or run through a platform drop immediately instead of jittering/sticking.
+    3) **Stability pass (reduce choppiness/jitter)**
+       - Add small positional epsilon so we don’t `reset(...)` when the correction is tiny.
+       - Consider running constraint before/after collisions consistently (already before visuals) and minimize teleport-like corrections.
+       - Acceptance: swing arc looks smooth; fewer visible “snaps”.
+    4) **Pump realism tuning (avoid easy full loops)**
+       - Lower `pumpAccel` and/or `maxSpeed` clamp.
+       - Gate pumping: apply most of the pump only near bottom of arc (based on rope angle or relative mount/anchor Y).
+       - Optional realism: only add energy if input matches current tangential velocity sign.
+       - Acceptance: you can still gain swing speed, but full loops require significant setup (or may be impossible depending on desired realism).
+  - **Notes**
+    - Full loops aren’t necessarily “wrong”, but current tuning makes them too easy.
+    - Choppiness can also come from collisions when attached under platforms; the obstruction rule should remove many worst cases.
   - **Rope obstruction rules (simple + fast):**
     - Only while grappling, segment-test mount→anchor against platform/wall AABBs.
     - If the rope segment intersects anything *before* the anchor point (t < 1 - ε), **auto-release**.
