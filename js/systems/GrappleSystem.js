@@ -13,6 +13,7 @@ export class GrappleSystem {
         this.anchor = null;
         this.ropeLength = 0;
         this.prevAllowGravity = null;
+        this.prevBounce = null;
 
         this.shotUntil = 0;
         this.shotFadeMs = 350;
@@ -97,6 +98,11 @@ export class GrappleSystem {
         if (player?.body) {
             this.prevAllowGravity = player.body.allowGravity;
             player.body.allowGravity = false;
+
+            // Also remove bounce while grappling; bounce + constraint can create perpetual “pinball” energy
+            // on platform edges/undersides.
+            this.prevBounce = { x: player.body.bounce.x, y: player.body.bounce.y };
+            player.setBounce(0);
         }
         return true;
     }
@@ -107,6 +113,11 @@ export class GrappleSystem {
             player.body.allowGravity = this.prevAllowGravity;
         }
         this.prevAllowGravity = null;
+        if (player?.body && this.prevBounce) {
+            player.body.bounce.x = this.prevBounce.x;
+            player.body.bounce.y = this.prevBounce.y;
+        }
+        this.prevBounce = null;
         this.active = false;
         this.anchor = null;
         this.ropeLength = 0;
@@ -154,24 +165,30 @@ export class GrappleSystem {
         const offsetY = desiredMountY - mount.y;
         const posEpsilon = 0.5;
         if (Math.abs(offsetX) > posEpsilon || Math.abs(offsetY) > posEpsilon) {
-            // Avoid `body.reset(...)` here: doing it frequently at high swing speeds can tank FPS and
-            // produce visible "slow motion" / choppiness. Nudging both the GameObject and Body position
-            // is significantly cheaper and keeps velocities intact.
-            player.x += offsetX;
-            player.y += offsetY;
-
-            // Keep the Arcade Body in sync (different Phaser internals use different fields).
-            if (player.body.position) {
-                player.body.position.x += offsetX;
-                player.body.position.y += offsetY;
+            // Avoid `body.reset(...)` here: frequent resets at high swing speeds can tank FPS.
+            //
+            // IMPORTANT: keep *Body* as the single source of truth to avoid render flicker.
+            // If we only nudge the sprite position (or only some body fields), Arcade can resync the
+            // GameObject from the Body on the next step, causing visible sprite/rope flicker.
+            const body = player.body;
+            if (body.position) {
+                body.position.x += offsetX;
+                body.position.y += offsetY;
+                // Keep aliases in sync (Arcade internals can read body.x/y or body.position.x/y).
+                body.x = body.position.x;
+                body.y = body.position.y;
             } else {
-                player.body.x += offsetX;
-                player.body.y += offsetY;
+                body.x += offsetX;
+                body.y += offsetY;
             }
-            if (player.body.prev) {
-                player.body.prev.x += offsetX;
-                player.body.prev.y += offsetY;
+            if (body.prev) {
+                body.prev.x += offsetX;
+                body.prev.y += offsetY;
             }
+
+            // Sync sprite to body (default origin is centered).
+            player.x = body.center.x;
+            player.y = body.center.y;
         }
 
         // 2) Remove radial velocity so motion stays tangent to the rope.
@@ -189,6 +206,14 @@ export class GrappleSystem {
             const tangentialAccel = g * tangentY; // (0,g)·t
             vel.x += tangentX * tangentialAccel * dt;
             vel.y += tangentY * tangentialAccel * dt;
+
+            // Add a small tangential damping so a no-input swing eventually settles instead of persisting forever.
+            // This also reduces "infinite underside bonking" when you can’t clear an obstacle.
+            const tangentialDampingPerSec = 0.35;
+            const tangentialVel2 = vel.x * tangentX + vel.y * tangentY;
+            const dampedTangentialVel2 = tangentialVel2 * Math.exp(-tangentialDampingPerSec * dt);
+            vel.x = tangentX * dampedTangentialVel2;
+            vel.y = tangentY * dampedTangentialVel2;
         }
     }
 

@@ -163,6 +163,14 @@ stick-game-test/
   2) Revisit position correction method: keep projection rare, and ensure any manual position sync updates all relevant fields consistently.
   3) If needed, keep the “pendulum” model but shift all authoritative movement to the Body and let Phaser sync the sprite from the body only.
 
+### Grapple Swing Feel (New / High Priority)
+
+- **Current state:** The new pendulum-style rope motion is much smoother vertically and no longer “buzzes” at dead hang.
+- **Observed issue:** With no input, swing energy appears to persist for a very long time (feels like near-zero damping).
+- **Observed issue:** “Speed profile” through the arc can look unnatural at times (may be from discrete projection when reeling or when the constraint has to correct).
+- **Observed issue:** When swinging into an underside/edge, the player can repeatedly bonk and keep swinging back and forth (no obstruction/auto-release behavior yet).
+- **Notes:** A hard reload / caching mismatch has happened before; verify behavior with cache disabled when testing.
+
 ## Next Steps
 
 Grapple pass 2: fix grapple visual flicker + finalize swing pump feel; then rope obstruction rules + preserve momentum on release; then decide next milestone (damage/health, projectile feel, or procedural generator).
