@@ -15,6 +15,7 @@ export class DebugControls {
     constructor(scene) {
         this.scene = scene;
         this.flyMode = false;
+        this.debugDrawEnabled = !!scene.physics?.world?.drawDebug;
         
         // Set up key bindings
         this.restartKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
@@ -56,10 +57,26 @@ export class DebugControls {
         
         // H key - toggle hitbox display
         if (Phaser.Input.Keyboard.JustDown(this.hitboxKey)) {
-            if (this.scene.physics.world.debugGraphic) {
-                this.scene.physics.world.debugGraphic.visible = !this.scene.physics.world.debugGraphic.visible;
+            const world = this.scene.physics.world;
+            this.debugDrawEnabled = !this.debugDrawEnabled;
+
+            // This is a "real" toggle: disable Arcade's debug drawing work, not just visibility.
+            // (When drawDebug is false, the debug graphics aren't re-rendered each step.)
+            world.drawDebug = this.debugDrawEnabled;
+
+            if (this.debugDrawEnabled) {
+                if (!world.debugGraphic && typeof world.createDebugGraphic === 'function') {
+                    world.createDebugGraphic();
+                }
+                if (world.debugGraphic) world.debugGraphic.visible = true;
+            } else {
+                if (world.debugGraphic) {
+                    world.debugGraphic.clear();
+                    world.debugGraphic.visible = false;
+                }
             }
-            return { action: 'hitboxToggled' };
+
+            return { action: 'hitboxToggled', enabled: this.debugDrawEnabled };
         }
         
         return null;
@@ -72,4 +89,3 @@ export class DebugControls {
         return this.flyMode;
     }
 }
-

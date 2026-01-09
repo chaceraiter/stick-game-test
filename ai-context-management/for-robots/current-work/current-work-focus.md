@@ -6,7 +6,7 @@ Weapon system baseline is in place; shifting focus to improving player movement 
 
 - **Intermediate Goal:** Improve player movement (feel + abilities)
 
-- **Current Task:** Grapple pass 2: swing pumping + rope obstruction
+- **Current Task:** Grapple pass 2: stabilize swing + pump tuning
 
 ## Weapon System Progress
 
@@ -43,6 +43,7 @@ Weapon system baseline is in place; shifting focus to improving player movement 
 - Rope obstruction rule: auto-release if rope intersects platforms/walls (keep ceiling grapples but prevent “stuck under platform”)
 - Fix swing “stickiness”/jitter (Arcade constraint smoothing + epsilon to reduce micro-resets)
 - Tune pump realism (gated pumping near bottom of arc + lower accel/clamps)
+ - Fix grapple visual flicker (player sprite + rope) when swinging/reeling
 
 ## Feature Roadmap (See project-vision-and-goals.md)
 

@@ -12,7 +12,7 @@ A stick figure arena shooter built with Phaser 3, styled to look like doodles on
 - **Aiming:** Crosshair orbits player at fixed distance, J/K to rotate aim
 - **Facing + quick turn:** character faces left/right based on aim side; L mirrors aim for quick 180 turns (stand/crouch only); debug facing vector shown
 - **Jump pack (test):** I = upward kick, O = short upward thrust; orange jet flame visual
-- **Grapple (test):** N deploys/release; 2000ms cooldown; attaches only if ray hits platform/wall; rope constraint enables swinging; A/D pumps swing (tangential accel) when taut; W reels in, S reels out; true misses show a brief orange shot line
+- **Grapple (test):** N deploy/release; 2000ms cooldown; attaches only if ray hits platform/wall; rope constraint enables swinging; A/D pumps swing (impulse-gated near bottom) when taut; W reels in, S reels out; true misses show a brief orange shot line
 - **Shooting:** Spacebar or click fires toward crosshair
 - **Projectile collisions:** Bullets disappear when they hit platforms/walls (in addition to enemies)
 - **Weapon switching:** 1–5 keys switch weapons
@@ -27,7 +27,7 @@ A stick figure arena shooter built with Phaser 3, styled to look like doodles on
 - **Compound shape system:** Multiple collision bodies + custom visual outlines
 - **Water hazard:** Blue wavy line at y=870
 - **Walls:** Hand-drawn with crayon fill
-- **Debug controls:** R (restart), G (next layout), F (fly), H (hitboxes)
+- **Debug controls:** R (restart), G (next layout), F (fly), H (Arcade physics debug draw toggle)
 
 ## Weapon System: Complete
 
@@ -60,7 +60,7 @@ stick-game-test/
 ├── js/
 │   ├── game.js                     # Phaser config (700x900)
 │   ├── scenes/
-│   │   └── PlayScene.js            # Main gameplay (~570 lines)
+│   │   └── PlayScene.js            # Main gameplay (still large; grapple logic extracted)
 │   ├── platforms/
 │   │   ├── PlatformShapes.js       # Re-export hub
 │   │   ├── ShapeDefinitions.js     # 18 shapes
@@ -70,6 +70,8 @@ stick-game-test/
 │   │   └── EnvironmentRenderer.js  # Walls & water
 │   ├── utils/
 │   │   └── DebugControls.js        # R/G/F/H keys
+│   ├── systems/
+│   │   └── GrappleSystem.js        # Grapple logic extracted from PlayScene
 │   └── weapons/
 │       └── WeaponDefinitions.js    # NEW: 5 weapon configs
 ├── assets/
@@ -123,9 +125,47 @@ stick-game-test/
 16. Added grapple miss tracer (brief orange line on true misses)
 17. Added pump-only swing controls (A/D tangential accel) + improved rope constraint (taut projection + remove radial velocity)
 
+## Since Last Checkpoint (e3f8653) — Detailed Notes (Uncommitted)
+
+### Grapple System Refactor + Swing Physics Stabilization
+
+- **Refactor:** Grapple logic is now encapsulated in `js/systems/GrappleSystem.js`, and `PlayScene` delegates input/constraint/draw to it.
+- **New rope physics approach (goal: eliminate dead-hang jitter):**
+  - While grappling, we temporarily set `player.body.allowGravity = false` (Arcade gravity off) to prevent a constant “fall then snap back” cycle.
+  - We then apply a **pendulum-style** update in `GrappleSystem.applyConstraint(dt)`:
+    1) **(Occasional) position projection** back onto the rope circle when drift is noticeable (epsilon-based).
+    2) **Remove radial velocity** every frame so the player moves tangentially to the rope instead of “stretching” the rope.
+    3) **Apply gravity only along the rope tangent** (project gravity onto the tangent), which yields natural swing acceleration without fighting a hard rope constraint.
+  - `PlayScene` now passes `deltaSeconds` into `applyConstraint(deltaSeconds)` so the pendulum gravity uses real `dt`.
+- **Performance/stutter fix (goal: remove “slow motion” during fast swing + A/D):**
+  - Avoid frequent `body.reset(...)` inside the rope constraint projection; that can be expensive and can cause visible frame drops during fast motion.
+  - Instead we “nudge” the GameObject + Arcade Body positions directly when projection is needed (and update `body.prev`), which is cheaper and preserves velocity.
+- **Net result so far:**
+  - Dead-hang vertical jitter is much improved.
+  - Remaining issue: sprite/rope flicker while grappling (see below).
+
+### Debug Controls: “Real” Physics Debug Toggle
+
+- `H` now toggles Arcade debug drawing by flipping `physics.world.drawDebug` (not just hiding the debug graphic), and clears the debug graphic when disabled.
+- This helps test whether a performance regression is coming from debug rendering vs gameplay logic.
+
+## Current Known Issues / Observations
+
+### Grapple Visual Flicker (New / High Priority)
+
+- **Symptoms:** Player sprite flickers while swinging; rope flickers a bit too.
+- **Notable detail:** Arcade debug body/hitbox appears stable, but the sprite flickers (suggesting a GameObject/body sync issue).
+- **Trigger:** Sometimes re-aggravated by changing reel height (W/S reeling).
+- **Hypothesis:** Our rope projection “nudges” might not be synchronized with Arcade’s internal update order for the GameObject/body every frame (especially when dt varies), causing the render position to oscillate between two sources of truth.
+- **More specific suspicion:** In Phaser Arcade, `body.x/y` and `body.position.x/y` are both used by different internals. If we nudge only `body.position` (and the sprite) but not `body.x/y`, Arcade’s postUpdate can snap the sprite back to `body.x/y` next step → visible flicker even when the hitbox looks stable.
+- **Candidate fix directions (next session, no decision yet):**
+  1) Run rope constraint enforcement on the physics step (worldstep) instead of in the render `update()` loop.
+  2) Revisit position correction method: keep projection rare, and ensure any manual position sync updates all relevant fields consistently.
+  3) If needed, keep the “pendulum” model but shift all authoritative movement to the Body and let Phaser sync the sprite from the body only.
+
 ## Next Steps
 
-Grapple pass 2: stabilize swing feel + add rope obstruction rules + preserve momentum on release; then decide next milestone (damage/health, projectile feel, or procedural generator).
+Grapple pass 2: fix grapple visual flicker + finalize swing pump feel; then rope obstruction rules + preserve momentum on release; then decide next milestone (damage/health, projectile feel, or procedural generator).
 
 ## Wishlist / Planning Notes
 
@@ -140,6 +180,10 @@ Grapple pass 2: stabilize swing feel + add rope obstruction rules + preserve mom
     - Pumping can build energy fast enough to allow full loops from a dead hang (tune realism).
     - Player horizontal velocity can “disappear” after releasing grapple (likely due to non-grapple movement logic zeroing X velocity when no input).
     - Ceiling/underside attachments can get “stuck” against platform collision resolution (still allowed; needs better obstruction rules).
+  - **Wishlist: slack-rope visuals (curved rope)**
+    - Visual-only: when the rope is slack (player is inside max length), render a slight sag/curve instead of a straight line.
+    - Proposed approach: quadratic bezier curve using a single control point with tunables (`slackEpsilon`, `sagPerSlack`, `maxSagPx`, `downBias`).
+    - Note: attempted once locally but appeared to cause a freeze after ~1–5s while grappling, so it was reverted; revisit carefully and profile.
   - **Next session: do these one-by-one**
     1) **Preserve momentum on release (fix “velocity disappears”)**
        - Cause: non-grapple movement code uses `setVelocityX(0)` when no A/D input, so the first frame after release can wipe X velocity.
