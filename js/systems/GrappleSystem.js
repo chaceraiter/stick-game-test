@@ -207,13 +207,17 @@ export class GrappleSystem {
             vel.x += tangentX * tangentialAccel * dt;
             vel.y += tangentY * tangentialAccel * dt;
 
-            // Add a small tangential damping so a no-input swing eventually settles instead of persisting forever.
-            // This also reduces "infinite underside bonking" when you can’t clear an obstacle.
-            const tangentialDampingPerSec = 0.35;
-            const tangentialVel2 = vel.x * tangentX + vel.y * tangentY;
-            const dampedTangentialVel2 = tangentialVel2 * Math.exp(-tangentialDampingPerSec * dt);
-            vel.x = tangentX * dampedTangentialVel2;
-            vel.y = tangentY * dampedTangentialVel2;
+            // Explicit damping so a no-input swing eventually settles (Arcade doesn't model this for us).
+            // This is a simple velocity drag; tune the constant to taste.
+            const dampingPerSec = 0.8;
+            const damp = Math.exp(-dampingPerSec * dt);
+            vel.x *= damp;
+            vel.y *= damp;
+
+            // Ensure we stayed tangent (numerical safety).
+            const radialVel2 = vel.x * nx + vel.y * ny;
+            vel.x -= radialVel2 * nx;
+            vel.y -= radialVel2 * ny;
         }
     }
 

@@ -166,9 +166,10 @@ stick-game-test/
 ### Grapple Swing Feel (New / High Priority)
 
 - **Current state:** The new pendulum-style rope motion is much smoother vertically and no longer “buzzes” at dead hang.
-- **Observed issue:** With no input, swing energy appears to persist for a very long time (feels like near-zero damping).
+- **Damping (new):** Added explicit velocity damping while grappling so no-input swings settle instead of persisting indefinitely.
 - **Observed issue:** “Speed profile” through the arc can look unnatural at times (may be from discrete projection when reeling or when the constraint has to correct).
 - **Observed issue:** When swinging into an underside/edge, the player can repeatedly bonk and keep swinging back and forth (no obstruction/auto-release behavior yet).
+- **Observed issue (new):** Pump impulse can feel too weak on long ropes (hard to maintain/build swing) after adding damping; likely needs length-scaled or speed-scaled pump tuning.
 - **Notes:** A hard reload / caching mismatch has happened before; verify behavior with cache disabled when testing.
 
 ## Next Steps

@@ -45,6 +45,7 @@ Weapon system baseline is in place; shifting focus to improving player movement 
 - Tune pump realism (gated pumping near bottom of arc + lower accel/clamps)
  - Fix grapple visual flicker (player sprite + rope) when swinging/reeling
  - Add explicit swing damping / energy loss (no-input swing should settle)
+ - Re-tune pump for long ropes (length/speed scaling + caps)
 
 ## Feature Roadmap (See project-vision-and-goals.md)
 
