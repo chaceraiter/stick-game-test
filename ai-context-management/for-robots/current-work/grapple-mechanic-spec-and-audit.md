@@ -33,7 +33,8 @@ The grappling hook is a movement ability that lets the player attach a rope to t
 ### 1.4 Cooldown + Range
 
 - **Cooldown**: You can attempt a grapple at most once per **2000ms**. A miss consumes the cooldown.
-- **Max range**: Max grapple distance is ~6× player height (currently “player body height × 6”).
+- **Max range**: Max grapple distance is ~6× the player’s standing/baseline height (we avoid shrinking range when crouched/prone).
+  - Implementation note: we approximate “baseline height” by tracking the max observed Arcade body height.
 - **Initial rope length**: When you successfully attach, rope length starts as the distance from mount point to anchor.
 - **Reel limits**: Rope length is clamped between a small minimum and the max range.
 
@@ -180,7 +181,7 @@ This ordering matters because the rope constraint can move the player; dependent
 
 - Interprets A/D as `moveDir` (-1, 0, +1).
 - Determines the current half-swing direction from the sign of tangential velocity (or, at near-rest, from input).
-- Detects “passed nadir” by tracking `ny` peaking then decreasing.
+- Detects “passed nadir” by tracking `ny` peaking then decreasing (no hard `ny` threshold; small swings still have a definable bottom).
 - Stores input taps as “pending”, then promotes them to “queued” when they become eligible under the queue window rules.
 - Fires the queued impulse at the nadir, adds tangential velocity, and flashes green at anchor.
 
@@ -211,6 +212,5 @@ Use this to spot unintended behavior quickly:
 - A/D “queue window” edge cases around the nadir (press very close to bottom).
 - Behavior when rope is slightly slack (pumps should not act like air control).
 - Reel-in/out interaction with nadir detection (reeling changes ny/dist).
-- Whether the queued pump can get “stuck” if the swing never reaches nearBottomNy threshold.
+- Whether the queued pump can get “stuck” if nadir detection never triggers (e.g. ny doesn’t form a clean local maximum due to jitter/reeling/collisions).
 - Whether collision resolution with platforms (especially undersides) produces unintended energy.
-

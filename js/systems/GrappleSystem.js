@@ -8,6 +8,10 @@ export class GrappleSystem {
 
         this.key = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.N);
 
+        // Cache a baseline "standing" height so crouch/prone doesn't unintentionally reduce grapple range.
+        // We track the max observed height over time as a cheap, robust proxy.
+        this.maxObservedPlayerHeight = 17;
+
         this.nextGrappleTime = 0;
         this.active = false;
         this.anchor = null;
@@ -36,33 +40,10 @@ export class GrappleSystem {
         //     next apex if they never get a chance to fire.
         // - After a pump fires, require a full key-up during the *next* half-swing before another pump
         //   can be queued (prevents buffering).
-        this.lastPumpedHalfSign = 0;
-        this.currentHalfSign = 0;
-        this.halfCounter = 0;
-        this.lastHalfSignForCounter = 0;
-        this.prevMoveDir = 0;
-
-        // Track nadir timing within the current half-swing (based on ny peaking then decreasing).
-        this.halfPrevNy = null;
-        this.halfPeakNy = 0;
-        this.halfPassedNadir = false;
-
-        // At most one pending press and one queued pump at a time.
-        // - pending: a press/tap that hasn't yet become an eligible queue (e.g. opposite-direction press
-        //   made before passing the nadir; it becomes eligible immediately after the nadir).
-        // - queued: the next pump direction to fire at that direction's next nadir.
-        this.pumpPendingDir = 0;
-        this.pumpPendingHalfCounter = 0;
-        this.pumpQueuedDir = 0;
-        this.pumpQueuedExpiresHalfCounter = 0;
-
-        this.pumpWaitingForKeyUp = false;
-        this.pumpPumpedHalfSign = 0;
-        this.pumpHalfFlipSeen = false;
 
         // Debug visual: brief flash at anchor when a pump impulse successfully fires.
-        this.pumpFlashUntil = 0;
         this.pumpFlashMs = 90;
+        this.resetPumpState();
     }
 
     isActive() {
@@ -72,7 +53,8 @@ export class GrappleSystem {
     getMaxRange() {
         const player = this.getPlayer?.();
         const height = player?.body?.height ?? 17;
-        return height * 6;
+        this.maxObservedPlayerHeight = Math.max(this.maxObservedPlayerHeight, height);
+        return this.maxObservedPlayerHeight * 6;
     }
 
     getMountWorldPosition() {
@@ -128,23 +110,7 @@ export class GrappleSystem {
         this.active = true;
         this.anchor = { x: hit.x, y: hit.y };
         this.ropeLength = Phaser.Math.Distance.Between(start.x, start.y, hit.x, hit.y);
-        // Reset pump input state on deploy so "already holding A/D" counts as a fresh press for pumping.
-        this.lastPumpedHalfSign = 0;
-        this.currentHalfSign = 0;
-        this.halfCounter = 0;
-        this.lastHalfSignForCounter = 0;
-        this.prevMoveDir = 0;
-        this.halfPrevNy = null;
-        this.halfPeakNy = 0;
-        this.halfPassedNadir = false;
-        this.pumpPendingDir = 0;
-        this.pumpPendingHalfCounter = 0;
-        this.pumpQueuedDir = 0;
-        this.pumpQueuedExpiresHalfCounter = 0;
-        this.pumpWaitingForKeyUp = false;
-        this.pumpPumpedHalfSign = 0;
-        this.pumpHalfFlipSeen = false;
-        this.pumpFlashUntil = 0;
+        this.resetPumpState();
 
         // While grappling, we run our own "pendulum" gravity along the rope tangent.
         // Disabling Arcade gravity prevents a constant gravity-vs-constraint tug-of-war that can create jitter.
@@ -176,22 +142,206 @@ export class GrappleSystem {
         this.anchor = null;
         this.ropeLength = 0;
         if (this.graphics) this.graphics.clear();
+        this.resetPumpState();
+    }
+
+    resetPumpState() {
+        // Reset pump input state so "already holding A/D" counts as a fresh press for pumping.
         this.lastPumpedHalfSign = 0;
         this.currentHalfSign = 0;
         this.halfCounter = 0;
         this.lastHalfSignForCounter = 0;
         this.prevMoveDir = 0;
+
         this.halfPrevNy = null;
         this.halfPeakNy = 0;
         this.halfPassedNadir = false;
+
         this.pumpPendingDir = 0;
         this.pumpPendingHalfCounter = 0;
         this.pumpQueuedDir = 0;
         this.pumpQueuedExpiresHalfCounter = 0;
+
         this.pumpWaitingForKeyUp = false;
         this.pumpPumpedHalfSign = 0;
         this.pumpHalfFlipSeen = false;
+
         this.pumpFlashUntil = 0;
+    }
+
+    updateHalfSign({ tangentialSign, moveDir }) {
+        if (tangentialSign !== 0) {
+            this.currentHalfSign = tangentialSign;
+        } else if (this.currentHalfSign === 0 && moveDir !== 0) {
+            // From near-rest, allow input to define intended direction so you can kick-start a dead hang.
+            this.currentHalfSign = moveDir;
+        }
+        return this.currentHalfSign;
+    }
+
+    onHalfFlip(halfSign) {
+        // Called when we detect a new half-swing direction (apex flip).
+        this.halfCounter += 1;
+        this.lastHalfSignForCounter = halfSign;
+
+        // Reset nadir tracking for the new half.
+        this.halfPrevNy = null;
+        this.halfPeakNy = 0;
+        this.halfPassedNadir = false;
+
+        // Do not allow pending presses to carry across apex (prevents banking).
+        this.pumpPendingDir = 0;
+        this.pumpPendingHalfCounter = 0;
+    }
+
+    updateNadirTracking(ny) {
+        // Track whether we just passed the nadir this frame (ny peaked and started decreasing).
+        let justPassedNadir = false;
+        const nyDecreaseEpsilon = 0.002;
+
+        if (this.halfPrevNy === null) {
+            this.halfPrevNy = ny;
+            this.halfPeakNy = ny;
+            return { justPassedNadir };
+        }
+
+        this.halfPeakNy = Math.max(this.halfPeakNy, ny);
+        if (!this.halfPassedNadir) {
+            // Nadir detection: within a half-swing, ny increases toward the bottom then decreases.
+            // We treat "nadir passed" as: ny has decreased meaningfully from the peak.
+            // No hard ny threshold here: small swings should still have a definable bottom.
+            if (ny < this.halfPrevNy - nyDecreaseEpsilon) {
+                this.halfPassedNadir = true;
+                justPassedNadir = true;
+            }
+        }
+        this.halfPrevNy = ny;
+        return { justPassedNadir };
+    }
+
+    updatePumpKeyUpGate({ halfSign, moveDir }) {
+        // After a successful pump, require a full key-up during the next half-swing before allowing
+        // another pump to be armed (prevents buffering).
+        if (!this.pumpWaitingForKeyUp) return;
+
+        if (!this.pumpHalfFlipSeen && halfSign !== 0 && halfSign !== this.pumpPumpedHalfSign) {
+            this.pumpHalfFlipSeen = true;
+        }
+        if (this.pumpHalfFlipSeen && moveDir === 0) {
+            this.pumpWaitingForKeyUp = false;
+            this.pumpPumpedHalfSign = 0;
+            this.pumpHalfFlipSeen = false;
+        }
+    }
+
+    expireQueuedPumpIfNeeded() {
+        // Expire queued pump if it has missed its opportunity window (no banking).
+        if (this.pumpQueuedDir !== 0 && this.halfCounter >= this.pumpQueuedExpiresHalfCounter) {
+            this.pumpQueuedDir = 0;
+            this.pumpQueuedExpiresHalfCounter = 0;
+        }
+    }
+
+    recordPendingPress({ moveDir }) {
+        // Record a press/tap (edge) as pending intent, even if it isn't eligible yet.
+        // We keep it pending even after key-up (tap-to-queue), until it either queues or expires.
+        const pressedThisFrame = moveDir !== 0 && this.prevMoveDir === 0;
+        if (
+            pressedThisFrame &&
+            !this.pumpWaitingForKeyUp &&
+            this.pumpQueuedDir === 0 &&
+            this.pumpPendingDir === 0
+        ) {
+            this.pumpPendingDir = moveDir;
+            this.pumpPendingHalfCounter = this.halfCounter;
+        }
+
+        // Pending presses do not carry across apex (prevents banking).
+        if (this.pumpPendingDir !== 0 && this.pumpPendingHalfCounter !== this.halfCounter) {
+            this.pumpPendingDir = 0;
+            this.pumpPendingHalfCounter = 0;
+        }
+    }
+
+    promotePendingToQueued({ halfSign }) {
+        // Promote pending press into an actual queued pump when it's eligible.
+        if (
+            this.pumpPendingDir === 0 ||
+            this.pumpWaitingForKeyUp ||
+            this.pumpQueuedDir !== 0 ||
+            this.lastPumpedHalfSign === halfSign
+        ) {
+            return;
+        }
+
+        const pendingDir = this.pumpPendingDir;
+
+        // Same-direction queue is only allowed BEFORE the nadir of this half.
+        if (pendingDir === halfSign) {
+            if (!this.halfPassedNadir) {
+                this.pumpQueuedDir = pendingDir;
+                this.pumpQueuedExpiresHalfCounter = this.halfCounter + 1; // expires at next apex
+            }
+            // If we already passed the nadir, ignore (prevents banking a same-direction pump).
+            this.pumpPendingDir = 0;
+            this.pumpPendingHalfCounter = 0;
+            return;
+        }
+
+        // Opposite-direction queue becomes eligible only AFTER the nadir (prep next swing).
+        if (pendingDir === -halfSign) {
+            if (this.halfPassedNadir) {
+                this.pumpQueuedDir = pendingDir;
+                this.pumpQueuedExpiresHalfCounter = this.halfCounter + 2; // expires at end of next half
+                this.pumpPendingDir = 0;
+                this.pumpPendingHalfCounter = 0;
+            }
+            return;
+        }
+
+        // Shouldn't happen (moveDir is -1/0/1), but clear to be safe.
+        this.pumpPendingDir = 0;
+        this.pumpPendingHalfCounter = 0;
+    }
+
+    tryFireQueuedPump({ halfSign, ropeTaut, justPassedNadir, tangentialSpeed, ny, tangentX, tangentY, vel }) {
+        // Fire at the nadir for best efficiency.
+        // Also handle a dead-hang: if you're already at the bottom and nearly stationary, fire immediately.
+        if (
+            this.pumpQueuedDir === 0 ||
+            this.pumpQueuedDir !== halfSign ||
+            !ropeTaut ||
+            this.lastPumpedHalfSign === halfSign
+        ) {
+            return;
+        }
+
+        const fireNowAtBottomNy = 0.95;
+        const shouldFireImmediatelyAtDeadHang = tangentialSpeed < 6 && ny >= fireNowAtBottomNy;
+        if (!justPassedNadir && !shouldFireImmediatelyAtDeadHang) return;
+
+        const bottomness = Phaser.Math.Clamp((this.halfPeakNy - 0.4) / 0.6, 0, 1);
+        if (bottomness > 0) {
+            const pumpImpulse = 32 * bottomness; // px/s tangential impulse
+            vel.x += tangentX * pumpImpulse * halfSign;
+            vel.y += tangentY * pumpImpulse * halfSign;
+
+            this.lastPumpedHalfSign = halfSign;
+            this.pumpWaitingForKeyUp = true;
+            this.pumpPumpedHalfSign = halfSign;
+            this.pumpHalfFlipSeen = false;
+            this.pumpFlashUntil = this.scene.time.now + this.pumpFlashMs;
+        }
+
+        this.pumpQueuedDir = 0;
+        this.pumpQueuedExpiresHalfCounter = 0;
+
+        const maxSpeed = 320;
+        const speed = Math.hypot(vel.x, vel.y);
+        if (speed > maxSpeed) {
+            vel.x = (vel.x / speed) * maxSpeed;
+            vel.y = (vel.y / speed) * maxSpeed;
+        }
     }
 
     updateReel({ reelIn, reelOut, dt }) {
@@ -318,13 +468,7 @@ export class GrappleSystem {
 
         // Track the current half-swing direction (based on tangential velocity sign).
         // This flips at the swing apex.
-        if (tangentialSign !== 0) {
-            this.currentHalfSign = tangentialSign;
-        } else if (this.currentHalfSign === 0 && moveDir !== 0) {
-            // From near-rest, allow input to define intended direction so you can kick-start a dead hang.
-            this.currentHalfSign = moveDir;
-        }
-        const halfSign = this.currentHalfSign;
+        const halfSign = this.updateHalfSign({ tangentialSign, moveDir });
         if (halfSign === 0) {
             this.prevMoveDir = moveDir;
             return;
@@ -333,147 +477,28 @@ export class GrappleSystem {
         // Increment half counter when we enter a new half-swing direction.
         // Reset per-half nadir tracking at the apex.
         if (halfSign !== 0 && halfSign !== this.lastHalfSignForCounter) {
-            this.halfCounter += 1;
-            this.lastHalfSignForCounter = halfSign;
-            this.halfPrevNy = null;
-            this.halfPeakNy = 0;
-            this.halfPassedNadir = false;
-
-            // Do not allow pending presses to carry across apex (prevents banking).
-            this.pumpPendingDir = 0;
-            this.pumpPendingHalfCounter = 0;
+            this.onHalfFlip(halfSign);
         }
 
-        // Track whether we just passed the nadir this frame (ny peaked and started decreasing).
-        let justPassedNadir = false;
-        const nearBottomNy = 0.85;
-        const nyDecreaseEpsilon = 0.002;
-        if (this.halfPrevNy === null) {
-            this.halfPrevNy = ny;
-            this.halfPeakNy = ny;
-        } else {
-            this.halfPeakNy = Math.max(this.halfPeakNy, ny);
-            if (!this.halfPassedNadir) {
-                const peakedNearBottom = this.halfPeakNy >= nearBottomNy;
-                if (peakedNearBottom && ny < this.halfPrevNy - nyDecreaseEpsilon) {
-                    this.halfPassedNadir = true;
-                    justPassedNadir = true;
-                }
-            }
-            this.halfPrevNy = ny;
-        }
+        const { justPassedNadir } = this.updateNadirTracking(ny);
 
-        // After a successful pump, require a full key-up during the next half-swing before allowing
-        // another pump to be armed (prevents buffering).
-        if (this.pumpWaitingForKeyUp) {
-            if (!this.pumpHalfFlipSeen && halfSign !== 0 && halfSign !== this.pumpPumpedHalfSign) {
-                this.pumpHalfFlipSeen = true;
-            }
-            if (this.pumpHalfFlipSeen && moveDir === 0) {
-                this.pumpWaitingForKeyUp = false;
-                this.pumpPumpedHalfSign = 0;
-                this.pumpHalfFlipSeen = false;
-            }
-        }
+        this.updatePumpKeyUpGate({ halfSign, moveDir });
 
-        // Expire queued pump if it has missed its opportunity window (no banking).
-        if (this.pumpQueuedDir !== 0 && this.halfCounter >= this.pumpQueuedExpiresHalfCounter) {
-            this.pumpQueuedDir = 0;
-            this.pumpQueuedExpiresHalfCounter = 0;
-        }
+        this.expireQueuedPumpIfNeeded();
 
-        // Record a press/tap (edge) as pending intent, even if it isn't eligible yet.
-        // We keep it pending even after key-up (tap-to-queue), until it either queues or expires.
-        const pressedThisFrame = moveDir !== 0 && this.prevMoveDir === 0;
-        if (
-            pressedThisFrame &&
-            !this.pumpWaitingForKeyUp &&
-            this.pumpQueuedDir === 0 &&
-            this.pumpPendingDir === 0
-        ) {
-            this.pumpPendingDir = moveDir;
-            this.pumpPendingHalfCounter = this.halfCounter;
-        }
+        this.recordPendingPress({ moveDir });
 
-        // Pending presses do not carry across apex (prevents banking).
-        if (this.pumpPendingDir !== 0 && this.pumpPendingHalfCounter !== this.halfCounter) {
-            this.pumpPendingDir = 0;
-            this.pumpPendingHalfCounter = 0;
-        }
-
-        // Promote pending press into an actual queued pump when it's eligible.
-        if (
-            this.pumpPendingDir !== 0 &&
-            !this.pumpWaitingForKeyUp &&
-            this.pumpQueuedDir === 0 &&
-            this.lastPumpedHalfSign !== halfSign
-        ) {
-            const pendingDir = this.pumpPendingDir;
-
-            // Same-direction queue is only allowed BEFORE the nadir of this half.
-            if (pendingDir === halfSign) {
-                if (!this.halfPassedNadir) {
-                    this.pumpQueuedDir = pendingDir;
-                    this.pumpQueuedExpiresHalfCounter = this.halfCounter + 1; // expires at next apex
-                }
-                // If we already passed the nadir, ignore (prevents banking a same-direction pump).
-                this.pumpPendingDir = 0;
-                this.pumpPendingHalfCounter = 0;
-            } else if (pendingDir === -halfSign) {
-                // Opposite-direction queue becomes eligible only AFTER the nadir (prep next swing).
-                if (this.halfPassedNadir) {
-                    this.pumpQueuedDir = pendingDir;
-                    this.pumpQueuedExpiresHalfCounter = this.halfCounter + 2; // expires at end of next half
-                    this.pumpPendingDir = 0;
-                    this.pumpPendingHalfCounter = 0;
-                }
-            } else {
-                // Shouldn't happen (moveDir is -1/0/1), but clear to be safe.
-                this.pumpPendingDir = 0;
-                this.pumpPendingHalfCounter = 0;
-            }
-        }
-
-        // Fire at the nadir for best efficiency.
-        // Also handle a dead-hang: if you're already at the bottom and nearly stationary, fire immediately.
-        const fireNowAtBottomNy = 0.95;
-        const shouldFireImmediatelyAtDeadHang =
-            this.pumpQueuedDir !== 0 &&
-            this.pumpQueuedDir === halfSign &&
-            ropeTaut &&
-            this.lastPumpedHalfSign !== halfSign &&
-            tangentialSpeed < 6 &&
-            ny >= fireNowAtBottomNy;
-
-        if (
-            this.pumpQueuedDir !== 0 &&
-            this.pumpQueuedDir === halfSign &&
-            ropeTaut &&
-            (justPassedNadir || shouldFireImmediatelyAtDeadHang) &&
-            this.lastPumpedHalfSign !== halfSign
-        ) {
-            const bottomness = Phaser.Math.Clamp((this.halfPeakNy - 0.4) / 0.6, 0, 1);
-            if (bottomness > 0) {
-                const pumpImpulse = 32 * bottomness; // px/s tangential impulse
-                vel.x += tangentX * pumpImpulse * halfSign;
-                vel.y += tangentY * pumpImpulse * halfSign;
-
-                this.lastPumpedHalfSign = halfSign;
-                this.pumpWaitingForKeyUp = true;
-                this.pumpPumpedHalfSign = halfSign;
-                this.pumpHalfFlipSeen = false;
-                this.pumpFlashUntil = this.scene.time.now + this.pumpFlashMs;
-            }
-            this.pumpQueuedDir = 0;
-            this.pumpQueuedExpiresHalfCounter = 0;
-
-            const maxSpeed = 320;
-            const speed = Math.hypot(vel.x, vel.y);
-            if (speed > maxSpeed) {
-                vel.x = (vel.x / speed) * maxSpeed;
-                vel.y = (vel.y / speed) * maxSpeed;
-            }
-        }
+        this.promotePendingToQueued({ halfSign });
+        this.tryFireQueuedPump({
+            halfSign,
+            ropeTaut,
+            justPassedNadir,
+            tangentialSpeed,
+            ny,
+            tangentX,
+            tangentY,
+            vel
+        });
 
         this.prevMoveDir = moveDir;
     }
