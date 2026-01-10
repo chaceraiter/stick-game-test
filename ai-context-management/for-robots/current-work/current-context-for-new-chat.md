@@ -12,7 +12,7 @@ A stick figure arena shooter built with Phaser 3, styled to look like doodles on
 - **Aiming:** Crosshair orbits player at fixed distance, J/K to rotate aim
 - **Facing + quick turn:** character faces left/right based on aim side; L mirrors aim for quick 180 turns (stand/crouch only); debug facing vector shown
 - **Jump pack (test):** I = upward kick, O = short upward thrust; orange jet flame visual
-- **Grapple (test):** N deploy/release; 2000ms cooldown; attaches only if ray hits platform/wall; rope constraint enables swinging; A/D pumps swing (impulse-gated near bottom) when taut; W reels in, S reels out; true misses show a brief orange shot line
+- **Grapple (test):** N deploy/release; 2000ms cooldown; attaches only if ray hits platform/wall; rope constraint enables swinging; A/D pumps swing (tap/hold to queue; same-direction queues only before the bottom, opposite-direction queues after the bottom; auto-fires at the bottom when taut; requires key-up before queuing again; green flash at anchor on successful pump); W reels in, S reels out; true misses show a brief orange shot line
 - **Shooting:** Spacebar or click fires toward crosshair
 - **Projectile collisions:** Bullets disappear when they hit platforms/walls (in addition to enemies)
 - **Weapon switching:** 1–5 keys switch weapons
@@ -99,7 +99,7 @@ stick-game-test/
 | Stance up/down | W/S or Up/Down |
 | Quick turn | L |
 | Grapple | N (toggle), W/S reel |
-| Grapple (pump) | A/D (while grappling) |
+| Grapple (pump) | A/D (while grappling; tap/hold to queue) |
 | Aim | J (CCW), K (CW) |
 | Shoot | Space or Click |
 | Reload | E |
@@ -123,7 +123,7 @@ stick-game-test/
 14. Added jump pack test (I/O) + orange jet flame
 15. Added grappling hook prototype (N deploy/release; W/S reeling)
 16. Added grapple miss tracer (brief orange line on true misses)
-17. Added pump-only swing controls (A/D tangential accel) + improved rope constraint (taut projection + remove radial velocity)
+17. Added pump-only swing controls (A/D) + improved rope constraint (taut projection + remove radial velocity)
 
 ## Since Last Checkpoint (e3f8653) — Detailed Notes (Uncommitted)
 
